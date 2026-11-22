@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clínica Jacarandá · Espacio Interdisciplinario</title>
+<meta name="description" content="Atención y rehabilitación del desarrollo infantil y adolescente en Montevideo. Reservá turnos, cargá tus documentos y gestioná tu cuenta online.">
+<meta name="theme-color" content="#050507">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="logo" href="#inicio">JACARANDÁ</a>
+  <ul>
+    <li><a href="#nosotros">Nosotros</a></li>
+    <li><a href="#instructivo">Cómo reservar</a></li>
+    <li><a href="#profesionales">Profesionales</a></li>
+    <li><a href="#cuenta" data-docs>Mi cuenta</a></li>
+    <li><a href="#contacto">Contacto</a></li>
+  </ul>
+  <a class="btn sm" href="#cuenta" data-docs>Cargar documentos</a>
+</div></nav>
+
+<header class="hero" id="inicio"><div class="wrap">
+  <span class="tag">Espacio Interdisciplinario · Montevideo</span>
+  <h1>Acompañamos el desarrollo de cada niño y adolescente</h1>
+  <p>Un equipo de profesionales que trabaja en conjunto. Cargá tus documentos, mirá los horarios y reservá tu turno desde el celular.</p>
+  <a class="btn pulse" href="#instructivo">Cómo reservar</a>
+  <a class="btn ghost" href="#cuenta" data-docs>Cargar mis documentos</a>
+</div></header>
+
+<section id="nosotros"><div class="wrap">
+  <h2 class="rv">Quiénes somos</h2>
+  <p class="lead rv">Jacarandá es un centro de atención y rehabilitación del desarrollo infantil y adolescente, con un abordaje interdisciplinario, registrado en el Ministerio de Salud Pública como centro de rehabilitación psicomotriz y psicopedagógico.</p>
+  <div class="grid">
+    <div class="card rv"><h3>Nuestra historia</h3><p>Todo empezó con una profesional que atendía una jornada por semana en un consultorio alquilado. Con la demanda creciendo, buscó una sede propia.</p></div>
+    <div class="card rv"><h3>El árbol violeta</h3><p>El 12 de noviembre visitamos una casa con un jacarandá en plena floración, el único florecido de la cuadra. Ese árbol nos dio el nombre y la identidad.</p></div>
+    <div class="card rv"><h3>Hoy</h3><p>Sumamos psicología, psicomotricidad y más especialidades. En mayo de 2025 nos mudamos a una sede más grande para atender a más familias.</p></div>
+  </div>
+  <div class="grid">
+    <div class="card center rv"><div class="num" data-n="27">0</div><p>profesionales</p></div>
+    <div class="card center rv"><div class="num" data-n="3">0</div><p>áreas de especialidad</p></div>
+    <div class="card center rv"><div class="num" data-n="100" data-s="%">0</div><p>abordaje interdisciplinario</p></div>
+  </div>
+</div></section>
+
+
+
+<section id="instructivo" class="alt"><div class="wrap">
+  <h2 class="rv">Cómo reservar tu hora</h2>
+  <div class="alert rv"><b>Primero, para reservar hora, tenés que cargar tus documentos.</b><br><span class="note">Se hace una sola vez y lo podés hacer desde el celular.</span></div>
+  <div class="grid">
+    <div class="card rv"><div class="num">01</div><h3>Cargá tus documentos</h3><p>Cédula, constancia del BPS e informe médico.</p></div>
+    <div class="card rv"><div class="num">02</div><h3>Elegí profesional y horario</h3><p>Mirá los días y horas disponibles de cada profesional.</p></div>
+    <div class="card rv"><div class="num">03</div><h3>Confirmá tu turno</h3><p>Lo ves en tu agenda. En consultas particulares se abona una seña del 50 %.</p></div>
+  </div>
+  <div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap"><button class="btn pulse" id="btnVideo">▶ Ver video instructivo</button><a class="btn ghost" href="#cuenta" data-docs>Cargar mis documentos</a></div>
+</div></section>
+
+<section id="cuenta"><div class="wrap">
+  <h2 class="rv">Mi cuenta</h2>
+  <div class="row rv"><div style="display:flex;gap:14px;align-items:center"><div class="avatar" style="margin:0">MS</div><div><b>Merilin Suárez</b><br><span class="note">Paciente · CI 4.123.456-7 · merilin.suarez@ejemplo.com</span></div></div><span class="chip">Perfil de ejemplo</span></div>
+  <div class="tabs" id="tabs">
+    <button class="on" data-t="docs">Cargar mis documentos</button>
+    <button data-t="agenda">Mi agenda</button>
+    <button data-t="perfil">Mis datos</button>
+  </div>
+  <div class="pane on" id="p-docs"></div>
+  <div class="pane" id="p-agenda"></div>
+  <div class="pane" id="p-perfil"></div>
+</div></section>
+
+<section id="profesionales" class="alt"><div class="wrap">
+  <h2 class="rv">Profesionales y horarios</h2>
+  <p class="lead rv">Elegí una especialidad, mirá los días disponibles y reservá tu hora.</p>
+  <div class="filters rv" id="filtros"></div>
+  <div class="grid" id="pros"></div>
+  <p class="note rv" style="margin-top:20px">Consultas particulares: se solicita una seña del 50 % para confirmar el turno. Si avisás con más de 24 horas hábiles, se reprograma sin costo. Las sesiones del BPS siguen su propio protocolo.</p>
+</div></section>
+<section id="contacto"><div class="wrap">
+  <h2 class="rv">Contacto</h2>
+  <div class="info">
+    <div class="card rv"><h3>Dirección</h3><p>Vilardebó 1323, Montevideo, Uruguay</p></div>
+    <div class="card rv"><h3>Web</h3><p>jacaranda.uy</p></div>
+    <div class="card rv"><h3>Atención</h3><p>Lunes a viernes, con horarios según cada profesional. Cerrado en enero.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">© 2026 Clínica Interdisciplinaria Jacarandá · Vilardebó 1323, Montevideo</div></footer>
+
+
+<div class="overlay" id="mBook"><div class="modal">
+  <button class="x" data-close>×</button>
+  <h3 id="bT"></h3>
+  <label>Día</label><div class="slots" id="bDias"></div>
+  <label>Hora</label><div class="slots" id="bHoras"></div>
+  <button class="btn" id="bOk" style="width:100%">Confirmar turno</button>
+</div></div>
+
+<div class="overlay" id="mVideo"><div class="modal" style="max-width:520px">
+  <button class="x" data-close>×</button>
+  <h3>Video instructivo</h3>
+  <div id="vBox"></div>
+</div></div>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
