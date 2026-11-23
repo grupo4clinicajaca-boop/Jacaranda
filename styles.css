@@ -150,3 +150,4 @@ nav.open .burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}nav.o
 .or{display:flex;align-items:center;gap:10px;color:var(--mu);font-size:13px;margin:14px 0}
 .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 
+@media(max-width:520px){.ncta{display:none}}

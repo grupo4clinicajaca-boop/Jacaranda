@@ -23,12 +23,13 @@ service cloud.firestore {
     }
     match /turnos/{id} {
       allow read: if true;
-      allow create, update, delete: if request.auth != null && request.resource.data.u == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.u == request.auth.uid;
+      allow update: if request.auth != null && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.u == request.auth.uid;
     }
   }
 }
 ```
-(Para `delete`, si Firebase marca error en `request.resource`, separá la regla: `allow delete: if request.auth != null && resource.data.u == request.auth.uid;`)
 
 5. **Configuración del proyecto → Tus apps → Web (</>)**: registrá la app y copiá el objeto `firebaseConfig`.
 6. Abrí `firebase-config.js`, sacá los `//` y pegá tus valores en `window.FIREBASE_CONFIG`.

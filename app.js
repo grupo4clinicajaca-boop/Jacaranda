@@ -106,6 +106,9 @@ async function fbBackend(cfg){
 }
 
 let B=Local,me=null,APPTS=[],DOCSD={},filt="Todas",AUTHMODE="login",AFTER=null,AMSG="";
+const HASFB=!!(window.FIREBASE_CONFIG&&window.FIREBASE_CONFIG.apiKey);
+let BERR="",READY=Promise.resolve();
+const listo=async()=>{await READY;if(HASFB&&B.mode!=="firebase")throw new Error("No se pudo conectar con Firebase ("+BERR+"). Recargá la página con Ctrl+F5.")};
 const tomado=(p,f,h)=>APPTS.some(a=>a.p===p.id&&a.f===f&&a.h===h);
 const libres=p=>fechas(p).reduce((n,d)=>n+p.h.filter(h=>!tomado(p,iso(d),h)).length,0);
 const ini=p=>p.n.split(" ").slice(1).map(w=>w[0]).join("");
@@ -133,8 +136,8 @@ function pintaPros(){
 const GI='<b style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#fff;color:#4285f4;font-size:13px;margin-right:8px;vertical-align:-3px">G</b>';
 function abrirAuth(mode,after,msg){AUTHMODE=mode||"login";AFTER=after||null;AMSG=msg||"";authView();open("#mAuth")}
 function authView(){
- const reg=AUTHMODE==="reg",fb=B.mode==="firebase";
- $("#aBody").innerHTML=`${fb?"":'<div class="demo"><b>Modo demo:</b> las cuentas se guardan solo en este navegador. Para guardarlas en Google (Firebase) seguí el README.</div>'}
+ const reg=AUTHMODE==="reg",fb=HASFB&&!BERR;
+ $("#aBody").innerHTML=`${fb?"":`<div class="demo"><b>Modo demo:</b> ${BERR?"no se pudo conectar con Firebase ("+esc(BERR)+"). ":""}las cuentas se guardan solo en este navegador.</div>`}
  <div class="mtabs"><button data-am="login" class="${reg?"":"on"}">Ingresar</button><button data-am="reg" class="${reg?"on":""}">Crear cuenta</button></div>
  ${AMSG?`<p class="note" style="margin:0 0 8px">${esc(AMSG)}</p>`:""}
  <form id="aForm" novalidate>
@@ -159,19 +162,20 @@ function authView(){
   if(!msg&&reg&&pass!==$("#aPass2").value)msg="Las contraseñas no coinciden.";
   if(msg){er.textContent=msg;return}
   const btn=$("#aForm button[type=submit]");btn.disabled=true;er.textContent="";
-  try{const u=reg?await B.register({n:g("#aN"),ci:g("#aCi"),mail,pass}):await B.login(mail,pass);await entrar(u)}
+  try{await listo();const u=reg?await B.register({n:g("#aN"),ci:g("#aCi"),mail,pass}):await B.login(mail,pass);await entrar(u)}
   catch(x){er.textContent=errMsg(x);btn.disabled=false}
  };
- const gg=$("#aGoogle");if(gg)gg.onclick=async()=>{try{await entrar(await B.google())}catch(x){$("#aErr").textContent=errMsg(x)}};
+ const gg=$("#aGoogle");if(gg)gg.onclick=async()=>{try{await listo();await entrar(await B.google())}catch(x){$("#aErr").textContent=errMsg(x)}};
  const rs=$("#aReset");if(rs)rs.onclick=async()=>{
   const m=g("#aMail");if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)){$("#aErr").textContent="Escribí tu correo arriba y tocá de nuevo.";return}
-  try{await B.reset(m);toast("Te enviamos un correo para restablecer la contraseña")}catch(x){$("#aErr").textContent=errMsg(x)}};
+  try{await listo();await B.reset(m);toast("Te enviamos un correo para restablecer la contraseña")}catch(x){$("#aErr").textContent=errMsg(x)}};
 }
 async function entrar(u){
  me=u;close();toast("¡Listo, "+esc(String(u.n).split(" ")[0])+"! Sesión iniciada");
  const f=AFTER;AFTER=null;await refresh();if(f)f();
 }
 async function salir(){try{await B.logout()}catch(e){}me=null;APPTS=[];DOCSD={};await refresh();toast("Cerraste sesión")}
+$("#navIng").onclick=()=>{if(me)location.hash="#cuenta";else abrirAuth("login")};
 $("#navAuth").onclick=e=>{if(me){e.preventDefault();salir()}else{e.preventDefault();abrirAuth("login")}};
 $$("[data-login]").forEach(b=>b.onclick=()=>abrirAuth("login"));
 $$("[data-reg]").forEach(b=>b.onclick=()=>abrirAuth("reg"));
@@ -266,6 +270,8 @@ $$("[data-docs]").forEach(a=>a.addEventListener("click",()=>showTab("docs")));
 $$("#tabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.t));
 $("#cSalir").onclick=salir;
 function cuenta(){
+ const ni=$("#navIng");if(ni){ni.textContent=me?"Hola, "+String(me.n).split(" ")[0]:"Ingresar";ni.classList.toggle("pulse",!me)}
+ const hi=$("#heroIng");if(hi)hi.hidden=!!me;
  const na=$("#navAuth");na.textContent=me?"Cerrar sesión":"Ingresar";
  $("#cOut").hidden=!!me;$("#cIn").hidden=!me;
  if(!me)return;
@@ -284,7 +290,7 @@ function cuenta(){
 function banner(dc){const n=DOCS.filter((_,i)=>dc[i]).length,ok=n===DOCS.length;return `<div class="alert ${ok?"ok":""}"><b>${ok?"¡Documentación completa! Secretaría la va a revisar.":"Cargá tu documentación para completar la reserva."}</b><div class="bar"><i style="width:${n/DOCS.length*100}%"></i></div><span class="note">${n} de ${DOCS.length} documentos cargados</span></div>`}
 
 // ===== Video instructivo =====
-$("#btnVideo").onclick=()=>{$("#vBox").innerHTML=VIDEO_URL?`<iframe src="${VIDEO_URL}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px" allowfullscreen></iframe>`:'<div class="vid">'+["Creá tu cuenta o ingresá, y tocá «Agendar cita»","Abonás la seña del 50 %","Mandás el comprobante por WhatsApp","Cargás cédula, constancia del BPS e informe médico"].map((t,i)=>`<div class="vs" style="animation-delay:${i*1.2}s"><span class="num">${i+1}</span> ${t}</div>`).join("")+'</div><p class="note">Acá va el video explicativo de la clínica.</p>';open("#mVideo")};
+$("#btnVideo").onclick=()=>{$("#vBox").innerHTML=VIDEO_URL?`<iframe src="${VIDEO_URL}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px" allowfullscreen></iframe>`:'<div class="vid">'+["Creá tu cuenta o entrá con Google","Tocá «Agendar cita» y elegí profesional, día y hora","Abonás la seña del 50 %","Mandás el comprobante por WhatsApp","Cargás cédula, constancia del BPS e informe médico"].map((t,i)=>`<div class="vs" style="animation-delay:${i*1.2}s"><span class="num">${i+1}</span> ${t}</div>`).join("")+'</div><p class="note">Acá va el video explicativo de la clínica.</p>';open("#mVideo")};
 
 // ===== Navegación =====
 const nav=$("#nav"),bg=$("#burger"),menu=v=>{nav.classList.toggle("open",v);bg.setAttribute("aria-expanded",v)};
@@ -299,8 +305,7 @@ $$("[data-wa]").forEach(e=>e.innerHTML=WAI);
 
 // ===== Arranque =====
 pintaPros();cuenta();watch();
-(async()=>{
- const cfg=window.FIREBASE_CONFIG;
- if(cfg&&cfg.apiKey){try{B=await fbBackend(cfg)}catch(e){console.error(e);toast("No se pudo conectar con Firebase: se usa el modo demo")}}
+READY=(async()=>{
+ if(HASFB){try{B=await fbBackend(window.FIREBASE_CONFIG)}catch(e){console.error(e);BERR=(e&&(e.code||e.message))||"error desconocido";toast("No se pudo conectar con Firebase: se usa el modo demo");if($("#mAuth").classList.contains("open"))authView()}}
  B.init(async u=>{me=u;await refresh()});
 })();
