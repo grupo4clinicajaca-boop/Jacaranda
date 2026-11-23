@@ -1,11 +1,6 @@
-// Configuración de Firebase (cuentas y datos guardados en Google).
-// Mientras esté en null, el sitio funciona en MODO DEMO: las cuentas se guardan solo en el navegador.
-// Para activarlo, seguí los pasos del README y pegá acá la configuración de tu proyecto:
-//
-// window.FIREBASE_CONFIG = {
-//   apiKey: "...",
-//   authDomain: "tu-proyecto.firebaseapp.com",
-//   projectId: "tu-proyecto",
-//   appId: "..."
-// };
-window.FIREBASE_CONFIG = null;
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAJrDToewl0aRpdbA73U86IE7739XAGQRU",
+  authDomain: "jacaranda-clinica.firebaseapp.com",
+  projectId: "jacaranda-clinica",
+  appId: "1:898184222206:web:349003bc38cf736af4dcaf"
+};
