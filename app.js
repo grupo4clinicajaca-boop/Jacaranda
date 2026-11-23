@@ -33,10 +33,26 @@ const fechas=p=>{const r=[],t=new Date();for(let i=1;i<=28&&r.length<8;i++){cons
 const lbl=s=>{const d=new Date(s+"T12:00");return DN[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1)};
 const money=n=>"$ "+Math.round(n).toLocaleString("es-UY");
 const same=(a,b)=>a.p===b.p&&a.f===b.f&&a.h===b.h;
-const ciValida=v=>{ // cédula uruguaya: 7 dígitos + dígito verificador
- let d=String(v).replace(/\D/g,"");if(d.length<7||d.length>8)return false;d=d.padStart(8,"0");
- const w=[2,9,8,7,6,3,4];let t=0;for(let i=0;i<7;i++)t+=+d[i]*w[i];
- return (10-t%10)%10===+d[7];
+const ciValida = v => {
+  let d = String(v).replace(/\D/g, "");
+
+  if (d.length < 7 || d.length > 8) return false;
+
+  d = d.padStart(8, "0");
+
+  // Rechazar números completamente repetidos
+  if (/^(\d)\1+$/.test(d)) return false;
+
+  const w = [2, 9, 8, 7, 6, 3, 4];
+  let suma = 0;
+
+  for (let i = 0; i < 7; i++) {
+    suma += Number(d[i]) * w[i];
+  }
+
+  const verificador = (10 - (suma % 10)) % 10;
+
+  return verificador === Number(d[7]);
 };
 const iniciales=n=>String(n||"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("")||"?";
 
