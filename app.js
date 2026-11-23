@@ -35,8 +35,8 @@ const same=(a,b)=>a.p===b.p&&a.f===b.f&&a.h===b.h;
 const iniciales=n=>String(n||"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("")||"?";
 
 // ===== Cuentas y datos: Firebase (Google) si está configurado, si no modo demo local =====
-const ERR={"auth/email-already-in-use":"Ya existe una cuenta con ese correo.","auth/invalid-credential":"Correo o contraseña incorrectos.","auth/wrong-password":"Correo o contraseña incorrectos.","auth/user-not-found":"Correo o contraseña incorrectos.","auth/weak-password":"La contraseña es muy débil (mínimo 8 caracteres).","auth/invalid-email":"El correo no es válido.","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/popup-blocked":"El navegador bloqueó la ventana de Google. Permitila e intentá de nuevo.","auth/network-request-failed":"Sin conexión. Revisá tu internet e intentá de nuevo.","auth/too-many-requests":"Demasiados intentos. Esperá unos minutos.","permission-denied":"Sin permiso. Revisá las reglas de Firestore (ver README)."};
-const errMsg=e=>ERR[e&&e.code]||(e&&e.message&&!/^Firebase/.test(e.message)?e.message:"Ocurrió un error. Intentá de nuevo.");
+const ERR={"auth/email-already-in-use":"Ya existe una cuenta con ese correo.","auth/invalid-credential":"Correo o contraseña incorrectos.","auth/wrong-password":"Correo o contraseña incorrectos.","auth/user-not-found":"Correo o contraseña incorrectos.","auth/weak-password":"La contraseña es muy débil (mínimo 8 caracteres).","auth/invalid-email":"El correo no es válido.","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/popup-blocked":"El navegador bloqueó la ventana de Google. Permitila e intentá de nuevo.","auth/network-request-failed":"Sin conexión. Revisá tu internet e intentá de nuevo.","auth/too-many-requests":"Demasiados intentos. Esperá unos minutos.","permission-denied":"Sin permiso. Revisá las reglas de Firestore (ver README).","auth/operation-not-allowed":"Ese método de ingreso no está activado en Firebase (Authentication → Método de acceso).","auth/unauthorized-domain":"Este dominio no está autorizado en Firebase (Authentication → Configuración → Dominios autorizados).","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/cancelled-popup-request":"Se canceló la ventana de Google. Intentá de nuevo.","auth/operation-not-supported-in-this-environment":"Este navegador no permite la ventana de Google. Abrí el sitio desde la dirección https:// en Chrome o Safari.","auth/internal-error":"Error interno de Firebase. Revisá que Google esté activado y recargá.","auth/configuration-not-found":"Falta activar Authentication en Firebase (Compilación → Authentication → Comenzar).","auth/invalid-api-key":"La apiKey de firebase-config.js no es válida.","auth/api-key-not-valid":"La apiKey de firebase-config.js no es válida."};
+const errMsg=e=>ERR[e&&e.code]||(e&&e.message&&!/^Firebase/.test(e.message)?e.message:"Ocurrió un error"+(e&&e.code?" ("+e.code+")":"")+". Intentá de nuevo.");
 
 const Local={
  mode:"local",
@@ -272,7 +272,7 @@ $("#cSalir").onclick=salir;
 function cuenta(){
  const ni=$("#navIng");if(ni){ni.textContent=me?"Hola, "+String(me.n).split(" ")[0]:"Ingresar";ni.classList.toggle("pulse",!me)}
  const hi=$("#heroIng");if(hi)hi.hidden=!!me;
- const na=$("#navAuth");na.textContent=me?"Cerrar sesión":"Ingresar";
+ const na=$("#navAuth");na.textContent="Cerrar sesión";na.parentElement.hidden=!me;
  $("#cOut").hidden=!!me;$("#cIn").hidden=!me;
  if(!me)return;
  $("#cAv").textContent=iniciales(me.n);$("#cNom").textContent=me.n;
