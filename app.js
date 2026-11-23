@@ -24,7 +24,8 @@ const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelecto
 const S={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),3200)};
-const open=id=>$(id).classList.add("open"),close=()=>$$(".overlay").forEach(o=>o.classList.remove("open"));
+let FORCE=false,AUTHBUSY=false,NUEVO=false; // FORCE: el cuadro no se puede cerrar hasta completar la cédula
+const open=id=>$(id).classList.add("open"),close=()=>{if(FORCE)return;$$(".overlay").forEach(o=>o.classList.remove("open"))};
 $$("[data-close]").forEach(b=>b.onclick=close);
 $$(".overlay").forEach(o=>o.onclick=e=>{if(e.target===o)close()});
 const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -32,10 +33,15 @@ const fechas=p=>{const r=[],t=new Date();for(let i=1;i<=28&&r.length<8;i++){cons
 const lbl=s=>{const d=new Date(s+"T12:00");return DN[d.getDay()]+" "+d.getDate()+"/"+(d.getMonth()+1)};
 const money=n=>"$ "+Math.round(n).toLocaleString("es-UY");
 const same=(a,b)=>a.p===b.p&&a.f===b.f&&a.h===b.h;
+const ciValida=v=>{ // cédula uruguaya: 7 dígitos + dígito verificador
+ let d=String(v).replace(/\D/g,"");if(d.length<7||d.length>8)return false;d=d.padStart(8,"0");
+ const w=[2,9,8,7,6,3,4];let t=0;for(let i=0;i<7;i++)t+=+d[i]*w[i];
+ return (10-t%10)%10===+d[7];
+};
 const iniciales=n=>String(n||"").split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join("")||"?";
 
 // ===== Cuentas y datos: Firebase (Google) si está configurado, si no modo demo local =====
-const ERR={"auth/email-already-in-use":"Ya existe una cuenta con ese correo.","auth/invalid-credential":"Correo o contraseña incorrectos.","auth/wrong-password":"Correo o contraseña incorrectos.","auth/user-not-found":"Correo o contraseña incorrectos.","auth/weak-password":"La contraseña es muy débil (mínimo 8 caracteres).","auth/invalid-email":"El correo no es válido.","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/popup-blocked":"El navegador bloqueó la ventana de Google. Permitila e intentá de nuevo.","auth/network-request-failed":"Sin conexión. Revisá tu internet e intentá de nuevo.","auth/too-many-requests":"Demasiados intentos. Esperá unos minutos.","permission-denied":"Sin permiso. Revisá las reglas de Firestore (ver README).","auth/operation-not-allowed":"Ese método de ingreso no está activado en Firebase (Authentication → Método de acceso).","auth/unauthorized-domain":"Este dominio no está autorizado en Firebase (Authentication → Configuración → Dominios autorizados).","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/cancelled-popup-request":"Se canceló la ventana de Google. Intentá de nuevo.","auth/operation-not-supported-in-this-environment":"Este navegador no permite la ventana de Google. Abrí el sitio desde la dirección https:// en Chrome o Safari.","auth/internal-error":"Error interno de Firebase. Revisá que Google esté activado y recargá.","auth/configuration-not-found":"Falta activar Authentication en Firebase (Compilación → Authentication → Comenzar).","auth/invalid-api-key":"La apiKey de firebase-config.js no es válida.","auth/api-key-not-valid":"La apiKey de firebase-config.js no es válida."};
+const ERR={"auth/email-already-in-use":"Ya existe una cuenta con ese correo.","auth/invalid-credential":"Correo o contraseña incorrectos.","auth/wrong-password":"Correo o contraseña incorrectos.","auth/user-not-found":"Correo o contraseña incorrectos.","auth/weak-password":"La contraseña es muy débil (mínimo 8 caracteres).","auth/invalid-email":"El correo no es válido.","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/popup-blocked":"El navegador bloqueó la ventana de Google. Permitila e intentá de nuevo.","auth/network-request-failed":"Sin conexión. Revisá tu internet e intentá de nuevo.","auth/too-many-requests":"Demasiados intentos. Esperá unos minutos.","unavailable":"Firebase no responde. Revisá que la base Firestore esté creada y tu internet.","failed-precondition":"Falta crear la base de datos Firestore en Firebase.","not-found":"Falta crear la base de datos Firestore en Firebase.","permission-denied":"Sin permiso. Revisá las reglas de Firestore (ver README).","auth/operation-not-allowed":"Ese método de ingreso no está activado en Firebase (Authentication → Método de acceso).","auth/unauthorized-domain":"Este dominio no está autorizado en Firebase (Authentication → Configuración → Dominios autorizados).","auth/popup-closed-by-user":"Cerraste la ventana de Google antes de terminar.","auth/cancelled-popup-request":"Se canceló la ventana de Google. Intentá de nuevo.","auth/operation-not-supported-in-this-environment":"Este navegador no permite la ventana de Google. Abrí el sitio desde la dirección https:// en Chrome o Safari.","auth/internal-error":"Error interno de Firebase. Revisá que Google esté activado y recargá.","auth/configuration-not-found":"Falta activar Authentication en Firebase (Compilación → Authentication → Comenzar).","auth/invalid-api-key":"La apiKey de firebase-config.js no es válida.","auth/api-key-not-valid":"La apiKey de firebase-config.js no es válida."};
 const errMsg=e=>ERR[e&&e.code]||(e&&e.message&&!/^Firebase/.test(e.message)?e.message:"Ocurrió un error"+(e&&e.code?" ("+e.code+")":"")+". Intentá de nuevo.");
 
 const Local={
@@ -68,7 +74,8 @@ const Local={
  async delAppt(a){S.set("jac_appts",S.get("jac_appts",[]).filter(x=>!same(x,a)))},
  async getDocs(uid){return S.get("jac_docs",{})[uid]||{}},
  async setDocs(uid,d){const all=S.get("jac_docs",{});all[uid]=d;S.set("jac_docs",all)},
- async saveProfile(uid,d){const us=this.users();for(const k in us){if(us[k].uid===uid){us[k].n=d.n;us[k].ci=d.ci}}S.set("jac_users",us)}
+ async saveProfile(uid,d){const us=this.users();for(const k in us){if(us[k].uid===uid){us[k].n=d.n;us[k].ci=d.ci}}S.set("jac_users",us)},
+ async discard(){await this.logout()}
 };
 
 async function fbBackend(cfg){
@@ -85,8 +92,9 @@ async function fbBackend(cfg){
   init(cb){Au.onAuthStateChanged(auth,async u=>cb(u?await prof(u):null))},
   async register(d){
    const c=await Au.createUserWithEmailAndPassword(auth,d.mail,d.pass);
+   try{await F.setDoc(uref(c.user.uid),{n:d.n,ci:d.ci,mail:d.mail})}
+   catch(e){try{await Au.deleteUser(c.user)}catch(x){}throw e}
    try{await Au.updateProfile(c.user,{displayName:d.n})}catch(e){}
-   await F.setDoc(uref(c.user.uid),{n:d.n,ci:d.ci,mail:d.mail});
    return {uid:c.user.uid,n:d.n,ci:d.ci,mail:d.mail};
   },
   async login(mail,pass){const c=await Au.signInWithEmailAndPassword(auth,mail,pass);return prof(c.user)},
@@ -94,8 +102,9 @@ async function fbBackend(cfg){
    const c=await Au.signInWithPopup(auth,new Au.GoogleAuthProvider());
    const s=await F.getDoc(uref(c.user.uid));
    if(!s.exists())await F.setDoc(uref(c.user.uid),{n:c.user.displayName||"",ci:"",mail:c.user.email||""});
-   return prof(c.user);
+   const info=Au.getAdditionalUserInfo(c),u=await prof(c.user);u.nuevo=!!(info&&info.isNewUser);return u;
   },
+  async discard(){const u=auth.currentUser;if(!u)return;try{await F.deleteDoc(uref(u.uid))}catch(e){}try{await Au.deleteUser(u)}catch(e){await Au.signOut(auth)}},
   reset:mail=>Au.sendPasswordResetEmail(auth,mail),
   logout:()=>Au.signOut(auth),
   async listAppts(){const s=await F.getDocs(F.collection(db,"turnos"));return s.docs.map(d=>d.data())},
@@ -136,14 +145,14 @@ function pintaPros(){
 
 // ===== Ingresar / crear cuenta =====
 const GI='<b style="display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#fff;color:#4285f4;font-size:13px;margin-right:8px;vertical-align:-3px">G</b>';
-function abrirAuth(mode,after,msg){AUTHMODE=mode||"login";AFTER=after||null;AMSG=msg||"";authView();open("#mAuth")}
+function abrirAuth(mode,after,msg){FORCE=false;$("#mAuth .x").hidden=false;AUTHMODE=mode||"login";AFTER=after||null;AMSG=msg||"";authView();open("#mAuth")}
 function authView(){
  const reg=AUTHMODE==="reg",fb=HASFB&&!BERR;
  $("#aBody").innerHTML=`${fb?"":`<div class="demo"><b>Modo demo:</b> ${BERR?"no se pudo conectar con Firebase ("+esc(BERR)+"). ":""}las cuentas se guardan solo en este navegador.</div>`}
  <div class="mtabs"><button data-am="login" class="${reg?"":"on"}">Ingresar</button><button data-am="reg" class="${reg?"on":""}">Crear cuenta</button></div>
  ${AMSG?`<p class="note" style="margin:0 0 8px">${esc(AMSG)}</p>`:""}
  <form id="aForm" novalidate>
-  ${reg?`<label for="aN">Nombre completo</label><input id="aN" autocomplete="name"><label for="aCi">Cédula de identidad</label><input id="aCi" inputmode="numeric" autocomplete="off" placeholder="1.234.567-8">`:""}
+  ${reg?`<label for="aN">Nombre completo</label><input id="aN" autocomplete="name"><label for="aCi">Cédula de identidad</label><input id="aCi" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2">`:""}
   <label for="aMail">Correo electrónico</label><input id="aMail" type="email" autocomplete="email">
   <label for="aPass">Contraseña${reg?" (mínimo 8 caracteres)":""}</label><input id="aPass" type="password" autocomplete="${reg?"new-password":"current-password"}">
   ${reg?'<label for="aPass2">Repetir contraseña</label><input id="aPass2" type="password" autocomplete="new-password">':""}
@@ -157,38 +166,40 @@ function authView(){
  $("#aForm").onsubmit=async e=>{
   e.preventDefault();
   const mail=g("#aMail"),pass=$("#aPass").value,er=$("#aErr");let msg="";
-  if(reg){if(g("#aN").length<3)msg="Ingresá tu nombre completo.";else if(g("#aCi").replace(/\D/g,"").length<7)msg="Ingresá una cédula válida."}
+  if(reg){if(g("#aN").length<3)msg="Ingresá tu nombre completo.";else if(!ciValida(g("#aCi")))msg="La cédula no es válida. Revisá el número y el dígito final (ej. 1.234.567-2)."}
   if(!msg&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail))msg="Ingresá un correo válido.";
   if(!msg&&reg&&pass.length<8)msg="La contraseña debe tener al menos 8 caracteres.";
   if(!msg&&!reg&&!pass)msg="Ingresá tu contraseña.";
   if(!msg&&reg&&pass!==$("#aPass2").value)msg="Las contraseñas no coinciden.";
   if(msg){er.textContent=msg;return}
   const btn=$("#aForm button[type=submit]");btn.disabled=true;er.textContent="";
-  try{await listo();const u=reg?await B.register({n:g("#aN"),ci:g("#aCi"),mail,pass}):await B.login(mail,pass);await entrar(u)}
-  catch(x){er.textContent=errMsg(x);btn.disabled=false}
+  AUTHBUSY=true;try{await listo();const u=reg?await B.register({n:g("#aN"),ci:g("#aCi"),mail,pass}):await B.login(mail,pass);await entrar(u)}
+  catch(x){er.textContent=errMsg(x);btn.disabled=false}finally{AUTHBUSY=false}
  };
- const gg=$("#aGoogle");if(gg)gg.onclick=async()=>{try{await listo();await entrar(await B.google())}catch(x){$("#aErr").textContent=errMsg(x)}};
+ const gg=$("#aGoogle");if(gg)gg.onclick=async()=>{AUTHBUSY=true;try{await listo();await entrar(await B.google())}catch(x){$("#aErr").textContent=errMsg(x)}finally{AUTHBUSY=false}};
  const rs=$("#aReset");if(rs)rs.onclick=async()=>{
   const m=g("#aMail");if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)){$("#aErr").textContent="Escribí tu correo arriba y tocá de nuevo.";return}
   try{await listo();await B.reset(m);toast("Te enviamos un correo para restablecer la contraseña")}catch(x){$("#aErr").textContent=errMsg(x)}};
 }
-function abrirCompletar(after){
- $("#aBody").innerHTML=`<h3>Completá tus datos</h3><p class="note">Necesitamos tu cédula para la ficha de paciente.</p>
+function abrirCompletar(after,forced){
+ FORCE=!!forced;$("#mAuth .x").hidden=!!forced;
+ $("#aBody").innerHTML=`<h3>Completá tus datos</h3><p class="note">${forced?"Para usar tu cuenta necesitamos tu cédula. ":""}Es obligatoria para la ficha de paciente.</p>
  <form id="pForm" novalidate><label for="pN">Nombre completo</label><input id="pN" autocomplete="name" value="${esc(me.n)}">
- <label for="pCi">Cédula de identidad</label><input id="pCi" inputmode="numeric" autocomplete="off" placeholder="1.234.567-8" value="${esc(me.ci)}">
- <p class="note err" id="pErr"></p><button class="btn full" type="submit">Guardar</button></form>`;
+ <label for="pCi">Cédula de identidad</label><input id="pCi" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2" value="${esc(me.ci)}">
+ <p class="note err" id="pErr"></p><button class="btn full" type="submit">Guardar</button></form>${forced?'<button class="back" id="pCancel" style="margin-top:12px">Cancelar y salir</button>':""}`;
  $("#pForm").onsubmit=async e=>{e.preventDefault();
   const n=$("#pN").value.trim(),ci=$("#pCi").value.trim(),er=$("#pErr");
   if(n.length<3){er.textContent="Ingresá tu nombre completo.";return}
-  if(ci.replace(/\D/g,"").length<7){er.textContent="Ingresá una cédula válida.";return}
-  try{await B.saveProfile(me.uid,{n,ci});me={...me,n,ci};close();toast("Datos guardados ✔");await refresh();if(after)after()}
+  if(!ciValida(ci)){er.textContent="La cédula no es válida. Revisá el número y el dígito final (ej. 1.234.567-2).";return}
+  try{await B.saveProfile(me.uid,{n,ci});me={...me,n,ci};FORCE=false;close();toast("Datos guardados ✔");await refresh();if(after)after()}
   catch(x){er.textContent=errMsg(x)}};
+ const pc=$("#pCancel");if(pc)pc.onclick=async()=>{FORCE=false;const nu=NUEVO;try{nu?await B.discard():await B.logout()}catch(e){}me=null;NUEVO=false;APPTS=[];DOCSD={};close();await refresh();toast(nu?"No se creó la cuenta":"Cerraste sesión")};
  open("#mAuth");
 }
 async function entrar(u){
  me=u;close();toast("¡Listo, "+esc(String(u.n).split(" ")[0])+"! Sesión iniciada");
  const f=AFTER;AFTER=null;await refresh();
- if(!u.ci)abrirCompletar(f);else if(f)f();
+ NUEVO=!!u.nuevo;if(!u.ci)abrirCompletar(f,true);else if(f)f();
 }
 async function salir(){try{await B.logout()}catch(e){}me=null;APPTS=[];DOCSD={};await refresh();toast("Cerraste sesión")}
 $("#navIng").onclick=()=>{if(me)location.hash="#cuenta";else abrirAuth("login")};
@@ -325,5 +336,5 @@ $$("[data-wa]").forEach(e=>e.innerHTML=WAI);
 pintaPros();cuenta();watch();
 READY=(async()=>{
  if(HASFB){try{B=await fbBackend(window.FIREBASE_CONFIG)}catch(e){console.error(e);BERR=(e&&(e.code||e.message))||"error desconocido";toast("No se pudo conectar con Firebase: se usa el modo demo");if($("#mAuth").classList.contains("open"))authView()}}
- B.init(async u=>{me=u;await refresh()});
+ B.init(async u=>{me=u;await refresh();if(me&&!me.ci&&!AUTHBUSY&&!FORCE)abrirCompletar(null,true)});
 })();
