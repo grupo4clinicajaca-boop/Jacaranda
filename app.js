@@ -67,7 +67,8 @@ const Local={
  async putAppt(a){const l=S.get("jac_appts",[]).filter(x=>!same(x,a));l.push(a);S.set("jac_appts",l)},
  async delAppt(a){S.set("jac_appts",S.get("jac_appts",[]).filter(x=>!same(x,a)))},
  async getDocs(uid){return S.get("jac_docs",{})[uid]||{}},
- async setDocs(uid,d){const all=S.get("jac_docs",{});all[uid]=d;S.set("jac_docs",all)}
+ async setDocs(uid,d){const all=S.get("jac_docs",{});all[uid]=d;S.set("jac_docs",all)},
+ async saveProfile(uid,d){const us=this.users();for(const k in us){if(us[k].uid===uid){us[k].n=d.n;us[k].ci=d.ci}}S.set("jac_users",us)}
 };
 
 async function fbBackend(cfg){
@@ -101,7 +102,8 @@ async function fbBackend(cfg){
   putAppt:a=>F.setDoc(F.doc(db,"turnos",aid(a)),a),
   delAppt:a=>F.deleteDoc(F.doc(db,"turnos",aid(a))),
   async getDocs(uid){const s=await F.getDoc(uref(uid));return (s.exists()&&s.data().docs)||{}},
-  setDocs:(uid,d)=>F.setDoc(uref(uid),{docs:d},{merge:true})
+  setDocs:(uid,d)=>F.setDoc(uref(uid),{docs:d},{merge:true}),
+  saveProfile:(uid,d)=>F.setDoc(uref(uid),{n:d.n,ci:d.ci},{merge:true})
  };
 }
 
@@ -170,9 +172,23 @@ function authView(){
   const m=g("#aMail");if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m)){$("#aErr").textContent="Escribí tu correo arriba y tocá de nuevo.";return}
   try{await listo();await B.reset(m);toast("Te enviamos un correo para restablecer la contraseña")}catch(x){$("#aErr").textContent=errMsg(x)}};
 }
+function abrirCompletar(after){
+ $("#aBody").innerHTML=`<h3>Completá tus datos</h3><p class="note">Necesitamos tu cédula para la ficha de paciente.</p>
+ <form id="pForm" novalidate><label for="pN">Nombre completo</label><input id="pN" autocomplete="name" value="${esc(me.n)}">
+ <label for="pCi">Cédula de identidad</label><input id="pCi" inputmode="numeric" autocomplete="off" placeholder="1.234.567-8" value="${esc(me.ci)}">
+ <p class="note err" id="pErr"></p><button class="btn full" type="submit">Guardar</button></form>`;
+ $("#pForm").onsubmit=async e=>{e.preventDefault();
+  const n=$("#pN").value.trim(),ci=$("#pCi").value.trim(),er=$("#pErr");
+  if(n.length<3){er.textContent="Ingresá tu nombre completo.";return}
+  if(ci.replace(/\D/g,"").length<7){er.textContent="Ingresá una cédula válida.";return}
+  try{await B.saveProfile(me.uid,{n,ci});me={...me,n,ci};close();toast("Datos guardados ✔");await refresh();if(after)after()}
+  catch(x){er.textContent=errMsg(x)}};
+ open("#mAuth");
+}
 async function entrar(u){
  me=u;close();toast("¡Listo, "+esc(String(u.n).split(" ")[0])+"! Sesión iniciada");
- const f=AFTER;AFTER=null;await refresh();if(f)f();
+ const f=AFTER;AFTER=null;await refresh();
+ if(!u.ci)abrirCompletar(f);else if(f)f();
 }
 async function salir(){try{await B.logout()}catch(e){}me=null;APPTS=[];DOCSD={};await refresh();toast("Cerraste sesión")}
 $("#navIng").onclick=()=>{if(me)location.hash="#cuenta";else abrirAuth("login")};
@@ -186,6 +202,7 @@ const wa=m=>"https://wa.me/"+WSP.intl+"?text="+encodeURIComponent(m);
 let W={};
 async function reserva(id){
  if(!me){abrirAuth("login",()=>reserva(id),"Ingresá o creá tu cuenta para agendar tu cita.");return}
+ if(!me.ci){abrirCompletar(()=>reserva(id));return}
  try{APPTS=await B.listAppts()}catch(e){}
  W={pres:0,card:0,step:id?2:1,p:id?PROS.find(x=>x.id===id):null,f:null,h:null,esp:"Todas"};wz();open("#mBook");
 }
@@ -285,7 +302,8 @@ function cuenta(){
  $$("[data-d]").forEach(inp=>inp.onchange=async()=>{const f=inp.files[0];if(!f)return;if(f.size>5*1048576)return toast("El archivo supera los 5 MB");
   DOCSD[inp.dataset.d]={name:f.name,date:new Date().toLocaleDateString("es-UY")};
   try{await B.setDocs(me.uid,DOCSD);toast("Documento enviado ✔")}catch(e){toast(errMsg(e))}cuenta()});
- $("#p-perfil").innerHTML=[["Nombre",me.n],["Cédula",me.ci?"CI "+me.ci:"—"],["Correo",me.mail],["Tipo","Paciente"]].map(r=>`<div class="row"><span class="note">${r[0]}</span><b>${esc(r[1])}</b></div>`).join("");
+ $("#p-perfil").innerHTML=[["Nombre",me.n],["Cédula",me.ci?"CI "+me.ci:"—"],["Correo",me.mail],["Tipo","Paciente"]].map(r=>`<div class="row"><span class="note">${r[0]}</span><b>${esc(r[1])}</b></div>`).join("")+'<button class="btn ghost sm" id="pEdit">Editar mis datos</button>';
+ $("#pEdit").onclick=()=>abrirCompletar();
 }
 function banner(dc){const n=DOCS.filter((_,i)=>dc[i]).length,ok=n===DOCS.length;return `<div class="alert ${ok?"ok":""}"><b>${ok?"¡Documentación completa! Secretaría la va a revisar.":"Cargá tu documentación para completar la reserva."}</b><div class="bar"><i style="width:${n/DOCS.length*100}%"></i></div><span class="note">${n} de ${DOCS.length} documentos cargados</span></div>`}
 
@@ -299,7 +317,7 @@ $$("#menu a").forEach(a=>a.addEventListener("click",()=>menu(false)));
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){menu(false);close()}});
 document.addEventListener("click",e=>{if(!nav.contains(e.target))menu(false)});
 const lk=$$("#menu a:not(#navAuth)"),sc=lk.map(a=>$(a.getAttribute("href")));
-const spy=()=>{const y=scrollY+120;let k=-1;sc.forEach((s,i)=>{if(s&&s.offsetTop<=y)k=i});lk.forEach((a,i)=>a.classList.toggle("on",i===k));nav.classList.toggle("sc",scrollY>10)};
+const spy=()=>{const y=scrollY+120;let k=-1;let m=-1;sc.forEach((s,i)=>{if(s&&s.offsetTop<=y&&s.offsetTop>m){m=s.offsetTop;k=i}});lk.forEach((a,i)=>a.classList.toggle("on",i===k));nav.classList.toggle("sc",scrollY>10)};
 addEventListener("scroll",spy,{passive:true});spy();
 $$("[data-wa]").forEach(e=>e.innerHTML=WAI);
 
