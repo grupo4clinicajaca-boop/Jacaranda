@@ -27,7 +27,7 @@ service cloud.firestore {
           && request.resource.data.ci == resource.data.ci
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChange', 'tel']))
         || (isFunc() && resource.data.role == 'paciente'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bpsEst', 'bps']))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bpsEst', 'bps', 'activo', 'bajaMotivo']))
         || (isAdmin() && resource.data.role == 'funcionario'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['n', 'nac', 'mail', 'tel', 'activo']));
     }
@@ -55,6 +55,13 @@ service cloud.firestore {
       allow create: if isPac() && request.resource.data.u == request.auth.uid;
       allow update: if isPac() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
       allow delete: if (isPac() && resource.data.u == request.auth.uid) || isFunc();
+    }
+
+    // Turnos cancelados: baja lógica (queda quién y cuándo canceló); no se editan ni se borran
+    match /cancelaciones/{id} {
+      allow read: if isFunc() || (isPac() && resource.data.u == request.auth.uid);
+      allow create: if request.resource.data.by == request.auth.uid
+        && ((isPac() && request.resource.data.u == request.auth.uid) || isFunc());
     }
 
     // Historial de modificaciones: solo los funcionarios, y no se puede editar ni borrar

@@ -22,7 +22,8 @@ Administrador y funcionario no ven la barra ni el pie de la página pública; ti
 3. **BPS.** Jacarandá envía la documentación al BPS; el funcionario marca el estado (sin enviar / enviado / aprobada / no aprobada) y, al aprobarse, registra el **importe aprobado por sesión**. El sistema calcula costo total, cobertura BPS, saldo restante y seña por especialidad. La familia lo ve en la pestaña «Cobertura BPS».
 4. **Reservas.** Particular: se habilitan al aprobarse los documentos obligatorios. BPS: además tiene que estar aprobada la cobertura.
 5. **Seña.** Particular: 50 % del valor de la sesión (sin cambios). BPS: 50 % del saldo no cubierto por el BPS. El comprobante se envía por WhatsApp como antes. El pago con tarjeta es una simulación.
-6. **Historial.** Cada alta, cambio de estado de documentos y cambio de cobertura queda registrado con fecha y funcionario (no se puede editar ni borrar).
+6. **Bajas lógicas.** Nada se borra. Los funcionarios se desactivan desde Administración. Los pacientes se dan de baja desde su ficha (con motivo): no pueden ingresar pero se conservan datos, documentos e historial, y se pueden reactivar. Al cancelar un turno se archiva quién y cuándo lo canceló (colección `cancelaciones`) y el horario queda libre.
+7. **Historial.** Cada alta, cambio de estado de documentos y cambio de cobertura queda registrado con fecha y funcionario (no se puede editar ni borrar).
 
 - Contraseñas: las guarda Firebase Authentication **hasheadas**; el sitio nunca las ve.
 - **Demo**: «Seguir sin iniciar sesión (demo)» entra como paciente particular de prueba, con reservas habilitadas y sin guardar nada en Firebase.
@@ -53,6 +54,7 @@ Los archivos se guardan dentro de Firestore (no hace falta Firebase Storage ni p
 
 ## Importante
 - La habilitación para reservar se controla en la interfaz; las reglas de Firestore no la verifican.
+- El paciente dado de baja no aparece en el listado «Activos» (filtro «De baja» o «Todos»).
 - Las cuentas desactivadas no pueden ingresar ni leer datos, pero su usuario de Firebase Authentication sigue existiendo.
 - El correo del funcionario es un dato de contacto: el ingreso es siempre con la cédula.
 - Si alguien olvida su contraseña, hoy no se puede restablecer desde el sitio (no hay correo real asociado). Opciones: borrar el usuario en Firebase y crearlo de nuevo, o agregar una Cloud Function (plan Blaze).

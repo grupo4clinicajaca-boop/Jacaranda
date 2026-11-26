@@ -76,7 +76,7 @@ function mkLocal(st,pre,auth){
  const g=(k,d)=>{try{return JSON.parse(st.getItem(pre+k))??d}catch(e){return d}};
  const s=(k,v)=>{try{st.setItem(pre+k,JSON.stringify(v))}catch(e){throw new Error("No hay espacio para guardar el archivo en este navegador.")}};
  const b64=u=>btoa(String.fromCharCode(...u)),rs=()=>b64(crypto.getRandomValues(new Uint8Array(16)));
- const pub=u=>({uid:u.uid,n:u.n,ci:u.ci,tel:u.tel||"",role:u.role,mustChange:!!u.mustChange,at:u.at||0,mod:u.mod||"particular",bpsEst:u.bpsEst||"sin_enviar",bps:+u.bps||0,nac:u.nac||"",mail:u.mail||"",tut:u.tut||"",activo:u.activo!==false});
+ const pub=u=>({uid:u.uid,n:u.n,ci:u.ci,tel:u.tel||"",role:u.role,mustChange:!!u.mustChange,at:u.at||0,mod:u.mod||"particular",bpsEst:u.bpsEst||"sin_enviar",bps:+u.bps||0,nac:u.nac||"",mail:u.mail||"",tut:u.tut||"",activo:u.activo!==false,bajaMotivo:u.bajaMotivo||""});
  return {
   mode:auth?"local":"demo",
   async hash(pass,salt){ // la contraseña no se guarda: solo un hash con sal (PBKDF2)
@@ -104,7 +104,11 @@ function mkLocal(st,pre,auth){
   async saveProfile(uid,d){const us=g("users",{});if(us[uid]){us[uid].tel=d.tel;s("users",us)}},
   async listAppts(){return g("appts",[])},
   async putAppt(a){const l=g("appts",[]).filter(x=>!same(x,a));l.push(a);s("appts",l)},
-  async delAppt(a){s("appts",g("appts",[]).filter(x=>!same(x,a)))},
+  async delAppt(a,who){ // baja lógica: se archiva quién y cuándo canceló y se libera el horario
+   const c=g("cancel",[]);c.push({p:a.p,f:a.f,h:a.h,u:a.u||"",s:a.s||0,c:a.c||0,by:who&&who.uid||"",byName:who&&who.n||"",ts:Date.now()});s("cancel",c);
+   s("appts",g("appts",[]).filter(x=>!same(x,a)))},
+  async listCancel(uid){return g("cancel",[]).filter(x=>x.u===uid)},
+  async setActivo(uid,activo,motivo){const us=g("users",{});if(us[uid]){us[uid].activo=!!activo;us[uid].bajaMotivo=activo?"":motivo||"";s("users",us)}},
   async listDocs(uid){return g("docs",[]).filter(d=>!uid||d.u===uid)},
   async putDoc(uid,i,meta,data){const id=uid+"_"+i,l=g("docs",[]).filter(d=>d.id!==id),f=g("files",{});f[id]=data;s("files",f);
    l.push({id,u:uid,i,name:meta.name,date:meta.date,ts:Date.now(),estado:"revision",motivo:""});s("docs",l)},
@@ -121,7 +125,7 @@ async function fbBackend(cfg){
  auth.languageCode="es";
  const mailOf=ci=>"ci"+ci+"@ci.jacaranda.uy"; // la persona usa su cédula; Firebase necesita un correo interno
  const uref=uid=>F.doc(db,"users",uid),aid=a=>a.p+"_"+a.f+"_"+a.h.replace(":","");
- const mapU=(id,d)=>({uid:id,n:d.n||"",ci:d.ci||"",tel:d.tel||"",role:d.role||"",mustChange:!!d.mustChange,at:d.at||0,mod:d.mod||"particular",bpsEst:d.bpsEst||"sin_enviar",bps:+d.bps||0,nac:d.nac||"",mail:d.mail||"",tut:d.tut||"",activo:d.activo!==false});
+ const mapU=(id,d)=>({uid:id,n:d.n||"",ci:d.ci||"",tel:d.tel||"",role:d.role||"",mustChange:!!d.mustChange,at:d.at||0,mod:d.mod||"particular",bpsEst:d.bpsEst||"sin_enviar",bps:+d.bps||0,nac:d.nac||"",mail:d.mail||"",tut:d.tut||"",activo:d.activo!==false,bajaMotivo:d.bajaMotivo||""});
  const prof=async u=>{const s=await F.getDoc(uref(u.uid));return s.exists()?mapU(u.uid,s.data()):null};
  return {
   mode:"firebase",
@@ -146,7 +150,9 @@ async function fbBackend(cfg){
   saveProfile:(uid,d)=>F.updateDoc(uref(uid),{tel:d.tel}),
   async listAppts(){const s=await F.getDocs(F.collection(db,"turnos"));return s.docs.map(d=>d.data())},
   putAppt:a=>F.setDoc(F.doc(db,"turnos",aid(a)),a),
-  delAppt:a=>F.deleteDoc(F.doc(db,"turnos",aid(a))),
+  async delAppt(a,who){await F.addDoc(F.collection(db,"cancelaciones"),{p:a.p,f:a.f,h:a.h,u:a.u||"",s:a.s||0,c:a.c||0,by:who&&who.uid||"",byName:who&&who.n||"",ts:Date.now()});await F.deleteDoc(F.doc(db,"turnos",aid(a)))},
+  async listCancel(uid){const q=await F.getDocs(F.query(F.collection(db,"cancelaciones"),F.where("u","==",uid)));return q.docs.map(d=>d.data())},
+  setActivo:(uid,activo,motivo)=>F.updateDoc(uref(uid),{activo:!!activo,bajaMotivo:activo?"":motivo||""}),
   async listDocs(uid){const q=uid?F.query(F.collection(db,"documentos"),F.where("u","==",uid)):F.collection(db,"documentos");const s=await F.getDocs(q);return s.docs.map(d=>({id:d.id,...d.data()}))},
   async putDoc(uid,i,meta,data){const id=uid+"_"+i;
    await F.setDoc(F.doc(db,"archivos",id),{u:uid,data});
@@ -390,7 +396,7 @@ function paintCuenta(){
  $$("[data-sim]").forEach(b=>b.onclick=async()=>{const[id,e]=b.dataset.sim.split("|");await B.setEstado(id,e,e==="rechazado"?"(demo)":"","demo");await refresh()});
  const ap2=APPTS.filter(a=>a.u===me.uid).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h));
  $("#p-agenda").innerHTML=(ap2.length?ap2.map(a=>{const p=PROS.find(x=>x.id===a.p);if(!p)return"";return `<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b><br><span class="note">${p.n} · ${p.e}${a.c===2?"<br>Seña "+money(a.s)+" a abonar en la clínica (POS o efectivo)":a.s?"<br>Seña "+money(a.s)+" abonada · "+(a.c?"comprobante enviado":"falta enviar el comprobante"):""}</span></div><button class="btn ghost sm" data-c="${a.p}|${a.f}|${a.h}">Cancelar</button></div>`}).join(""):'<p class="note">Todavía no tenés turnos.</p>')+(bloqueo(dm)?`<div class="alert"><b>Reservas todavía no habilitadas</b><br><span class="note">${bloqueo(dm)}</span></div>`:'<a class="btn sm" href="#profesionales">Reservar turno</a>');
- $$("[data-c]").forEach(b=>b.onclick=async()=>{const[p,f,h]=b.dataset.c.split("|");try{await B.delAppt({p:+p,f,h});toast("Turno cancelado")}catch(e){toast(errMsg(e))}await refresh()});
+ $$("[data-c]").forEach(b=>b.onclick=async()=>{const[p,f,h]=b.dataset.c.split("|");try{const a=APPTS.find(x=>x.p===+p&&x.f===f&&x.h===h)||{p:+p,f,h,u:me.uid};await B.delAppt(a,{uid:me.uid,n:me.n});toast("Turno cancelado")}catch(e){toast(errMsg(e))}await refresh()});
  $("#tabBps").hidden=me.mod!=="bps";
  if(me.mod==="bps")$("#p-bps").innerHTML=`<div class="alert ${me.bpsEst==="aprobado"?"ok":me.bpsEst==="no_aprobado"?"bad":""}"><b>${BPSE[me.bpsEst]||BPSE.sin_enviar}</b><br><span class="note">${me.bpsEst==="aprobado"?"El BPS aprobó un importe de "+money(me.bps)+" por sesión. La seña es el 50 % del saldo que no cubre el BPS.":me.bpsEst==="enviado"?"La clínica ya envió tu documentación al BPS. Te avisamos cuando respondan.":me.bpsEst==="no_aprobado"?"El BPS no aprobó la cobertura. La clínica se va a comunicar con vos.":"La clínica enviará tu documentación al BPS cuando esté aprobada."}</span></div>`+(me.bpsEst==="aprobado"?tablaCob(me.bps)+'<p class="note">Costo total de la sesión, cobertura del BPS, saldo restante que paga la familia y seña para reservar.</p>':"");
  const pp=$("#p-perfil");if(!pp.contains(document.activeElement)){
@@ -448,15 +454,18 @@ async function accionDoc(a,d,from){
  }catch(x){toast(errMsg(x))}
 }
 $("#docList").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const d=ALLDOCS.find(x=>x.id===b.dataset.id);if(d)accionDoc(b.dataset.a,d,"lista")};
-$("#docF").onchange=paint;$("#pacQ").oninput=paint;
+$("#docF").onchange=paint;$("#pacQ").oninput=paint;$("#pacF").onchange=paint;
 const botonesDoc=(d,pre)=>`<button class="btn ghost sm" data-${pre}="ver" data-id="${d.id}">Ver</button>${d.estado!=="aprobado"?`<button class="btn sm" data-${pre}="ok" data-id="${d.id}">Aprobar</button>`:""}${d.estado!=="rechazado"?`<button class="btn ghost sm" data-${pre}="no" data-id="${d.id}">No aprobar</button>`:""}${d.estado!=="revision"?`<button class="btn ghost sm" data-${pre}="rev" data-id="${d.id}">En revisión</button>`:""}`;
 async function ficha(uid){
  const u=USERS.find(x=>x.uid===uid);if(!u)return;
  let log=[];try{log=(await B.listLog(uid)).sort((a,b)=>b.ts-a.ts)}catch(e){}
+ let can=[];try{can=(await B.listCancel(uid)).sort((a,b)=>b.ts-a.ts)}catch(e){}
  const dm={};ALLDOCS.filter(d=>d.u===uid).forEach(d=>dm[d.i]=d);
  const okDocs=reqDocs(u.mod).every(i=>dm[i]&&dm[i].estado==="aprobado"),hab=okDocs&&(u.mod!=="bps"||u.bpsEst==="aprobado");
  const ag=APPTS.filter(a=>a.u===uid).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h));
  info(`<h3>Ficha del paciente</h3>${contacto(u)}
+ <div class="row"><span class="note">Cuenta</span><span class="rgt"><span class="st ${u.activo?"g":"r"}">${u.activo?"Activa":"De baja"}</span><button class="btn ghost sm" id="fBaja">${u.activo?"Dar de baja":"Reactivar"}</button></span></div>
+ ${!u.activo&&u.bajaMotivo?`<p class="note">Motivo de la baja: ${esc(u.bajaMotivo)}</p>`:""}
  <div class="row"><span class="note">Estado general</span><span class="st ${hab?"g":"y"}">${hab?"Reservas habilitadas":"Reservas no habilitadas"}</span></div>
  <h4 class="fh">Documentación</h4>
  ${docsDe(u.mod).map(i=>{const f=dm[i];return `<div class="row"><div><b>${DOCS[i]}</b>${reqDocs(u.mod).includes(i)?"":' <span class="note">(opcional)</span>'}<br><span class="note">${f?esc(f.name)+" · "+esc(f.date)+(f.estado==="rechazado"&&f.motivo?" · Motivo: "+esc(f.motivo):""):"Sin cargar"}</span></div><div class="rgt">${pill(f&&f.estado)}${f?botonesDoc(f,"fa"):""}</div></div>`}).join("")}
@@ -466,8 +475,14 @@ async function ficha(uid){
  <div id="fbT">${tablaCob(u.bps)}</div><p class="note">El saldo restante es lo que paga la familia; la seña es el 50 % de ese saldo. Se calcula con el importe ingresado.</p>
  <button class="btn sm" id="fbS">Guardar cobertura</button>`:""}
  <h4 class="fh">Agenda</h4>${ag.length?ag.map(a=>{const p=PROS.find(x=>x.id===a.p);return p?`<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b><br><span class="note">${p.n} · ${p.e}${a.c===2?" · seña a abonar en la clínica":a.s?" · seña "+money(a.s)+(a.c?" · comprobante enviado":" · falta comprobante"):""}</span></div></div>`:""}).join(""):'<p class="note">Todavía no reservó turnos.</p>'}
+ ${can.length?`<h4 class="fh">Turnos cancelados</h4>${can.map(x=>{const p=PROS.find(y=>y.id===x.p);return `<div class="row"><div>${lbl(x.f)} · ${x.h} h${p?" · "+esc(p.n):""}<br><span class="note">Cancelado el ${new Date(x.ts).toLocaleString("es-UY")} por ${esc(x.byName||"—")}</span></div></div>`}).join("")}`:""}
  <h4 class="fh">Historial de modificaciones</h4>${log.length?log.map(x=>`<div class="row"><div>${esc(x.txt)}<br><span class="note">${new Date(x.ts).toLocaleString("es-UY")} · ${esc(x.byName||"")}</span></div></div>`).join(""):'<p class="note">Sin movimientos todavía.</p>'}`);
  $("#iBody").onclick=e=>{const b=e.target.closest("[data-fa]");if(!b)return;const d=ALLDOCS.find(x=>x.id===b.dataset.id);if(d)accionDoc(b.dataset.fa,d,"ficha")};
+ $("#fBaja").onclick=async()=>{
+  let mot="";
+  if(u.activo){const v=prompt("Motivo de la baja (opcional). La familia no va a poder ingresar, pero se conservan todos los datos.","");if(v===null)return;mot=v.trim()}
+  else if(!confirm("¿Reactivar la cuenta de "+u.n+"?"))return;
+  try{await B.setActivo(uid,!u.activo,mot);await logf(uid,u.activo?"Cuenta dada de baja"+(mot?" · motivo: "+mot:""):"Cuenta reactivada");toast(u.activo?"Cuenta dada de baja":"Cuenta reactivada ✔");await refresh();ficha(uid)}catch(x){toast(errMsg(x))}};
  if(u.mod==="bps"){
   $("#fbI").oninput=()=>{$("#fbT").innerHTML=tablaCob($("#fbI").value.replace(",","."))};
   $("#fbS").onclick=async()=>{const est=$("#fbE").value,imp=Number($("#fbI").value.replace(",","."));
@@ -482,7 +497,7 @@ function paintPanel(){
  const q=$("#pacQ").value.trim().toLowerCase();
  const res=uid=>{const mod=(USERS.find(x=>x.uid===uid)||{}).mod,R=reqDocs(mod),l=ALLDOCS.filter(d=>d.u===uid&&R.includes(d.i)),ap=l.filter(d=>d.estado==="aprobado").length,rj=l.some(d=>d.estado==="rechazado"),rv=l.some(d=>d.estado==="revision");
   return `<span class="st ${ap===R.length?"g":rj?"r":l.length?"y":"n"}">${ap===R.length?"Aprobada":rj?"No aprobada":rv?"En revisión":"Sin documentos"}</span> <span class="note">${ap}/${R.length}</span>`};
- $("#pacList").innerHTML=USERS.filter(u=>u.role==="paciente"&&(!q||(u.n+" "+(u.tut||"")+" "+fmtCi(u.ci)+" "+u.ci).toLowerCase().includes(q))).sort((a,b)=>b.at-a.at).map(u=>`<div class="row"><div><b>${esc(u.n)}</b><br><span class="note">CI ${fmtCi(u.ci)} · Tutor: ${esc(u.tut||"—")} · Tel ${esc(u.tel)||"—"}<br>${MODS[u.mod]}${u.mod==="bps"?" · "+BPSE[u.bpsEst]:""}</span></div><div class="rgt">${res(u.uid)}<button class="btn sm" data-fi="${u.uid}">Ver ficha</button></div></div>`).join("")||'<p class="note">No hay pacientes para mostrar.</p>';
+ $("#pacList").innerHTML=USERS.filter(u=>u.role==="paciente"&&($("#pacF").value==="todos"||(u.activo?"activos":"inactivos")===$("#pacF").value)&&(!q||(u.n+" "+(u.tut||"")+" "+fmtCi(u.ci)+" "+u.ci).toLowerCase().includes(q))).sort((a,b)=>b.at-a.at).map(u=>`<div class="row"><div><b>${esc(u.n)}</b><br><span class="note">CI ${fmtCi(u.ci)} · Tutor: ${esc(u.tut||"—")} · Tel ${esc(u.tel)||"—"}<br>${MODS[u.mod]}${u.mod==="bps"?" · "+BPSE[u.bpsEst]:""}${u.activo?"":" · <b>DE BAJA</b>"}</span></div><div class="rgt">${res(u.uid)}<button class="btn sm" data-fi="${u.uid}">Ver ficha</button></div></div>`).join("")||'<p class="note">No hay pacientes para mostrar.</p>';
  $$("[data-fi]").forEach(b=>b.onclick=()=>ficha(b.dataset.fi));
  const f=$("#docF").value;
  $("#docList").innerHTML=ALLDOCS.filter(d=>f==="todos"||d.estado===f).sort((a,b)=>(b.ts||0)-(a.ts||0)).map(d=>{const u=USERS.find(x=>x.uid===d.u)||{};
@@ -490,7 +505,7 @@ function paintPanel(){
  const hoy=iso(new Date());
  $("#agList").innerHTML=APPTS.filter(a=>a.f>=hoy).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h)).map(a=>{const p=PROS.find(x=>x.id===a.p);if(!p)return"";const u=USERS.find(x=>x.uid===a.u);
   return `<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b> <span class="note">· ${p.n} (${p.e})</span><br><span class="note">Paciente: ${esc(u?u.n:"—")}${u&&u.tel?" · Tel "+esc(u.tel):""} · ${a.c===2?"seña a abonar en la clínica":a.s?"seña "+money(a.s)+(a.c?" · comprobante enviado":" · falta comprobante"):""}</span></div><button class="btn ghost sm" data-ac="${a.p}|${a.f}|${a.h}">Cancelar</button></div>`}).join("")||'<p class="note">No hay turnos próximos.</p>';
- $$("[data-ac]").forEach(b=>b.onclick=async()=>{if(!confirm("¿Cancelar este turno?"))return;const[p,f,h]=b.dataset.ac.split("|");try{await B.delAppt({p:+p,f,h});toast("Turno cancelado")}catch(e){toast(errMsg(e))}await refresh()});
+ $$("[data-ac]").forEach(b=>b.onclick=async()=>{if(!confirm("¿Cancelar este turno?"))return;const[p,f,h]=b.dataset.ac.split("|");try{const a=APPTS.find(x=>x.p===+p&&x.f===f&&x.h===h)||{p:+p,f,h};await B.delAppt(a,{uid:me.uid,n:me.n});if(a.u)await logf(a.u,"Turno cancelado por la clínica: "+lbl(f)+" · "+h+" h");toast("Turno cancelado")}catch(e){toast(errMsg(e))}await refresh()});
 }
 
 // ===== Administrador supremo: gestión de funcionarios (nada más) =====
