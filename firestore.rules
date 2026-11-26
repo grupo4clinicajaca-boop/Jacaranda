@@ -3,48 +3,64 @@ service cloud.firestore {
   match /databases/{db}/documents {
 
     function signed() { return request.auth != null; }
-    function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
-    function staff() { return signed() && (me().role == 'funcionario' || me().role == 'admin'); }
+    function prof() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function activo() { return prof().get('activo', true) == true; }
+    function isAdmin() { return signed() && prof().role == 'admin' && activo(); }
+    function isFunc() { return signed() && prof().role == 'funcionario' && activo(); }
+    function isPac() { return signed() && prof().role == 'paciente' && activo(); }
 
-    // Perfiles: el funcionario crea pacientes, el administrador crea funcionarios.
-    // El administrador "supremo" se crea a mano desde la consola (ver README).
+    // Perfiles
+    //  - administrador: ve, crea y modifica SOLO funcionarios (nunca pacientes)
+    //  - funcionario: ve, crea pacientes y gestiona su cobertura BPS (no puede crear funcionarios)
+    //  - paciente: ve su propio perfil y puede cambiar su teléfono
+    // El administrador supremo se crea a mano desde la consola (ver README).
     match /users/{uid} {
-      allow get: if signed() && (request.auth.uid == uid || staff());
-      allow list: if staff();
-      allow create: if signed() && (
-        (me().role == 'funcionario' && request.resource.data.role == 'paciente') ||
-        (me().role == 'admin' && request.resource.data.role == 'funcionario'));
-      // Cada persona solo puede tocar su teléfono y apagar la marca de "clave temporal".
-      allow update: if signed() && request.auth.uid == uid
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.ci == resource.data.ci
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChange', 'tel']);
+      allow get: if signed() && (request.auth.uid == uid
+        || (isFunc() && resource.data.role == 'paciente')
+        || (isAdmin() && resource.data.role == 'funcionario'));
+      allow list: if (isFunc() && resource.data.role == 'paciente')
+        || (isAdmin() && resource.data.role == 'funcionario');
+      allow create: if (isFunc() && request.resource.data.role == 'paciente')
+        || (isAdmin() && request.resource.data.role == 'funcionario');
+      allow update: if
+        (request.auth.uid == uid && request.resource.data.role == resource.data.role
+          && request.resource.data.ci == resource.data.ci
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChange', 'tel']))
+        || (isFunc() && resource.data.role == 'paciente'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bpsEst', 'bps']))
+        || (isAdmin() && resource.data.role == 'funcionario'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['n', 'nac', 'mail', 'tel', 'activo']));
     }
 
-    // Estado de cada documento (en revisión / aprobado / rechazado)
+    // Estado de cada documento (en revisión / aprobado / no aprobado)
     match /documentos/{id} {
-      allow get, list: if signed() && (staff() || resource.data.u == request.auth.uid);
-      allow create: if signed() && request.resource.data.u == request.auth.uid
+      allow get, list: if isFunc() || (isPac() && resource.data.u == request.auth.uid);
+      allow create: if isPac() && request.resource.data.u == request.auth.uid
         && request.resource.data.estado == 'revision';
-      allow update: if signed() && (
-        (resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid
-          && resource.data.estado != 'aprobado' && request.resource.data.estado == 'revision') ||
-        (staff() && request.resource.data.u == resource.data.u));
+      allow update: if (isPac() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid
+          && resource.data.estado != 'aprobado' && request.resource.data.estado == 'revision')
+        || (isFunc() && request.resource.data.u == resource.data.u);
     }
 
     // Contenido del archivo (imagen o PDF en base64)
     match /archivos/{id} {
-      allow read: if signed() && (staff() || resource.data.u == request.auth.uid);
-      allow create: if signed() && request.resource.data.u == request.auth.uid;
-      allow update: if signed() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
+      allow read: if isFunc() || (isPac() && resource.data.u == request.auth.uid);
+      allow create: if isPac() && request.resource.data.u == request.auth.uid;
+      allow update: if isPac() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
     }
 
-    // Turnos
+    // Turnos (el administrador no tiene acceso)
     match /turnos/{id} {
-      allow read: if signed();
-      allow create: if signed() && request.resource.data.u == request.auth.uid;
-      allow update: if signed() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
-      allow delete: if signed() && (resource.data.u == request.auth.uid || staff());
+      allow read: if isPac() || isFunc();
+      allow create: if isPac() && request.resource.data.u == request.auth.uid;
+      allow update: if isPac() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
+      allow delete: if (isPac() && resource.data.u == request.auth.uid) || isFunc();
+    }
+
+    // Historial de modificaciones: solo los funcionarios, y no se puede editar ni borrar
+    match /historial/{id} {
+      allow read: if isFunc();
+      allow create: if isFunc() && request.resource.data.by == request.auth.uid;
     }
   }
 }

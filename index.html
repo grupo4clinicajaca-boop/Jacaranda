@@ -25,6 +25,7 @@
   <button class="btn sm ncta" data-agendar>Agendar cita</button>
   <button class="burger" id="burger" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu"><span></span><span></span><span></span></button>
 </div></nav>
+<header id="privBar"><div class="wrap"><span class="logo"><img src="logo-sm.png" alt="" width="40" height="27">JACARANDÁ</span><span class="privrol" id="privRol"></span><span class="note" id="privNom"></span><button class="btn ghost sm" id="privOut">Cerrar sesión</button></div></header>
 <div id="demoBar" hidden><span><b>Modo demo:</b> podés probar todo, pero nada se guarda en la clínica.</span><button class="btn ghost sm" id="demoOut">Salir del demo</button></div>
 <div id="localBar" hidden></div>
 
@@ -68,13 +69,13 @@
 <!-- COMO RESERVAR -->
 <main class="page" id="pg-reservar" hidden><section><div class="wrap">
   <h2 class="rv">Cómo reservar tu hora</h2>
-  <div class="alert rv"><b>Reservá en 5 pasos:</b> aceptá el tratamiento en la clínica, ingresá con tu cuenta, agendá tu cita, abonás la seña y cargás tus documentos.<br><span class="note">Una vez que tenés tu cuenta, se hace todo desde el celular.</span></div>
+  <div class="alert rv"><b>El proceso en 5 pasos:</b> entrevista inicial, cuenta, documentación, habilitación y reserva con seña.<br><span class="note">Una vez que tenés tu cuenta, se hace todo desde el celular.</span></div>
   <div class="grid">
-    <div class="card rv"><div class="num">01</div><h3>Aceptá el tratamiento</h3><p>Vení a la clínica. Cuando aceptás el tratamiento, te creamos tu cuenta con una contraseña temporal.</p></div>
-    <div class="card rv"><div class="num">02</div><h3>Ingresá y cambiá tu clave</h3><p>Entrá con tu cédula y la contraseña temporal. La primera vez te pedimos que elijas una propia.</p></div>
-    <div class="card rv"><div class="num">03</div><h3>Agendá tu cita</h3><p>Elegí profesional, día y horario disponibles en su agenda.</p></div>
-    <div class="card rv"><div class="num">04</div><h3>Abonás la seña</h3><p>El 50 % de la consulta confirma tu lugar: con tarjeta, Mercado Pago o transferencia (y mandás el comprobante por WhatsApp al 091234567). También podés abonar en la clínica con POS o efectivo.</p></div>
-    <div class="card rv"><div class="num">05</div><h3>Cargá tus documentos</h3><p>Cédula, constancia del BPS e informe médico. La clínica los revisa y ves el estado en tu cuenta.</p></div>
+    <div class="card rv"><div class="num">01</div><h3>Entrevista y cuenta</h3><p>En la entrevista inicial decidís si el tratamiento te sirve. Si es así, la clínica te crea un usuario con tu cédula y una contraseña temporal (y marca si ingresás de forma particular o con cobertura del BPS).</p></div>
+    <div class="card rv"><div class="num">02</div><h3>Ingresá y cambiá tu clave</h3><p>Entrás con tu cédula y la contraseña temporal. La primera vez elegís una propia.</p></div>
+    <div class="card rv"><div class="num">03</div><h3>Cargá tus documentos</h3><p>Cédula del menor, cédula del tutor e informes médicos o evaluaciones anteriores. Con cobertura del BPS se suma el informe diagnóstico o psicodiagnóstico. La clínica los revisa y ves el estado en tu cuenta.</p></div>
+    <div class="card rv"><div class="num">04</div><h3>Aprobación y habilitación</h3><p>Con la documentación aprobada se habilita el inicio. Si hay BPS, la clínica envía todo al organismo y te habilita cuando aprueba el importe que cubre.</p></div>
+    <div class="card rv"><div class="num">05</div><h3>Reservá y abonás la seña</h3><p>Elegís profesional, día y hora, y abonás una seña del 50 % (con BPS, sobre el monto que no cubre el organismo). Mandás el comprobante por WhatsApp al 091234567 o abonás en la clínica con POS o efectivo.</p></div>
   </div>
   <div class="actions"><button class="btn pulse" id="btnVideo">▶ Ver video instructivo</button><button class="btn ghost" data-agendar>Agendar cita</button></div>
 </div></section></main>
@@ -138,10 +139,12 @@
   <div class="tabs" id="tabs">
     <button class="on" data-t="docs">Mis documentos</button>
     <button data-t="agenda">Mi agenda</button>
+    <button data-t="bps" id="tabBps" hidden>Cobertura BPS</button>
     <button data-t="perfil">Mis datos</button>
   </div>
   <div class="pane on" id="p-docs"></div>
   <div class="pane" id="p-agenda"></div>
+  <div class="pane" id="p-bps"></div>
   <div class="pane" id="p-perfil"></div>
 </div></section></main>
 
@@ -158,9 +161,11 @@
     <div class="card"><h3>Crear cuenta de paciente</h3>
       <p class="note">Se genera una contraseña temporal. El paciente la cambia la primera vez que ingresa.</p>
       <form id="fPac" class="frm" novalidate>
-        <div><label for="nPn">Nombre completo del paciente</label><input id="nPn" autocomplete="off"></div>
-        <div><label for="nPc">Cédula de identidad</label><input id="nPc" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2"></div>
-        <div><label for="nPt">Teléfono de contacto</label><input id="nPt" inputmode="tel" autocomplete="off" placeholder="091234567"></div>
+        <div><label for="nPn">Nombre del paciente (menor)</label><input id="nPn" autocomplete="off"></div>
+        <div><label for="nPtu">Nombre del tutor</label><input id="nPtu" autocomplete="off"></div>
+        <div><label for="nPc">Cédula de identidad (usuario de la familia)</label><input id="nPc" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2"></div>
+        <div><label for="nPt">Teléfono del tutor</label><input id="nPt" inputmode="tel" autocomplete="off" placeholder="091234567"></div>
+        <div><label for="nPm">Modalidad de ingreso</label><select id="nPm"><option value="particular">Particular (sin BPS)</option><option value="bps">Con cobertura del BPS</option></select></div>
         <p class="note err" id="nPe"></p>
         <button class="btn" type="submit">Crear cuenta</button>
       </form>
@@ -181,11 +186,15 @@
   <h2>Administración</h2>
   <p class="note" id="aSub"></p>
   <div class="card"><h3>Crear cuenta de funcionario</h3>
-    <p class="note">Se genera una contraseña temporal. El funcionario la cambia la primera vez que ingresa.</p>
+    <p class="note">El funcionario cambia la contraseña temporal la primera vez que ingresa. Desde acá solo se gestionan funcionarios.</p>
     <form id="fFun" class="frm" novalidate>
       <div><label for="nFn">Nombre completo</label><input id="nFn" autocomplete="off"></div>
       <div><label for="nFc">Cédula de identidad</label><input id="nFc" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2"></div>
+      <div><label for="nFnac">Fecha de nacimiento</label><input id="nFnac" type="date" autocomplete="off"></div>
+      <div><label for="nFm">Correo electrónico</label><input id="nFm" type="email" autocomplete="off"></div>
       <div><label for="nFt">Teléfono</label><input id="nFt" inputmode="tel" autocomplete="off" placeholder="091234567"></div>
+      <div><label for="nFp">Contraseña temporal</label><div class="inl"><input id="nFp" autocomplete="off" placeholder="Mínimo 8, letras y números"><button type="button" class="btn ghost sm" id="fGen">Generar</button></div></div>
+      <div><label for="nFr">Rol</label><input id="nFr" value="Funcionario" readonly></div>
       <p class="note err" id="nFe"></p>
       <button class="btn" type="submit">Crear funcionario</button>
     </form>
@@ -194,7 +203,7 @@
   <div id="funList"></div>
 </div></section></main>
 
-<footer><div class="wrap">© 2026 Clínica Interdisciplinaria Jacarandá · Vilardebó 1323, Montevideo</div></footer>
+<footer id="foot"><div class="wrap">© 2026 Clínica Interdisciplinaria Jacarandá · Vilardebó 1323, Montevideo</div></footer>
 
 <div class="overlay" id="mBook"><div class="modal wide">
   <button class="x" data-close aria-label="Cerrar">×</button>

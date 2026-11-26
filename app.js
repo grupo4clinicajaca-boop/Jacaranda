@@ -7,7 +7,9 @@ const PROS=[
  {id:5,n:"Lic. Valeria Silva",e:"Psicopedagogía",d:[2,3,5],h:["10:00","11:00","14:00","15:00"]},
  {id:6,n:"Lic. Camila Techera",e:"Psicopedagogía",d:[1,4],h:["16:00","17:00","18:00"]}];
 const DN=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
-const DOCS=["Cédula de identidad","Constancia del BPS","Informe médico"];
+const DOCS=["Cédula de identidad del menor","Cédula de identidad del tutor","Informes médicos o evaluaciones anteriores (si los tiene)","Informe diagnóstico o psicodiagnóstico (BPS)","Documentación adicional requerida por BPS"];
+const docsDe=mod=>mod==="bps"?[0,1,2,3,4]:[0,1,2]; // documentos que se piden según la modalidad
+const reqDocs=mod=>mod==="bps"?[0,1,3,4]:[0,1]; // obligatorios (los informes médicos son opcionales)
 // ===== CONFIGURACIÓN DE RESERVAS (editá estos valores) =====
 const WSP={mostrar:"091234567",intl:"59891234567"}; // WhatsApp para el comprobante (intl = sin el 0 inicial y con 598)
 const PRECIO={"Psicología":1500,"Psicomotricidad":1400,"Psicopedagogía":1400}; // EJEMPLO: poné el valor real de la consulta por especialidad
@@ -74,7 +76,7 @@ function mkLocal(st,pre,auth){
  const g=(k,d)=>{try{return JSON.parse(st.getItem(pre+k))??d}catch(e){return d}};
  const s=(k,v)=>{try{st.setItem(pre+k,JSON.stringify(v))}catch(e){throw new Error("No hay espacio para guardar el archivo en este navegador.")}};
  const b64=u=>btoa(String.fromCharCode(...u)),rs=()=>b64(crypto.getRandomValues(new Uint8Array(16)));
- const pub=u=>({uid:u.uid,n:u.n,ci:u.ci,tel:u.tel||"",role:u.role,mustChange:!!u.mustChange,at:u.at||0});
+ const pub=u=>({uid:u.uid,n:u.n,ci:u.ci,tel:u.tel||"",role:u.role,mustChange:!!u.mustChange,at:u.at||0,mod:u.mod||"particular",bpsEst:u.bpsEst||"sin_enviar",bps:+u.bps||0,nac:u.nac||"",mail:u.mail||"",tut:u.tut||"",activo:u.activo!==false});
  return {
   mode:auth?"local":"demo",
   async hash(pass,salt){ // la contraseña no se guarda: solo un hash con sal (PBKDF2)
@@ -84,16 +86,21 @@ function mkLocal(st,pre,auth){
   },
   async init(cb){
    if(auth&&!Object.keys(g("users",{})).length){const salt=rs();const s2=rs();s("users",{adm:{uid:"adm",n:"Administración (prueba)",ci:"12345672",tel:"",role:"admin",mustChange:false,salt,hash:await this.hash("admin1234",salt)},fun:{uid:"fun",n:"Funcionario (prueba)",ci:"41234563",tel:"099111222",role:"funcionario",mustChange:false,salt:s2,hash:await this.hash("func1234",s2)}})}
-   const m=g("session",null),u=m&&g("users",{})[m];cb(u?pub(u):null);
+   const m=g("session",null),u=m&&g("users",{})[m];cb(u&&u.activo!==false?pub(u):null);
   },
   async login(ci,pass){const u=Object.values(g("users",{})).find(x=>x.ci===ci);
-   if(!u||await this.hash(pass,u.salt)!==u.hash)throw new Error("Cédula o contraseña incorrectas.");s("session",u.uid);return pub(u)},
+   if(!u||await this.hash(pass,u.salt)!==u.hash)throw new Error("Cédula o contraseña incorrectas.");if(u.activo===false)throw new Error("Tu cuenta está desactivada. Consultá en la clínica.");s("session",u.uid);return pub(u)},
   async logout(){s("session",null)},
   async changePassword(uid,pass){const us=g("users",{}),u=us[uid];u.salt=rs();u.hash=await this.hash(pass,u.salt);u.mustChange=false;s("users",us);return pub(u)},
   async createUser(d){const us=g("users",{});if(Object.values(us).some(x=>x.ci===d.ci))throw new Error("Ya existe una cuenta con esa cédula.");
    const uid="u"+Date.now().toString(36)+Math.random().toString(36).slice(2,5),salt=rs();
-   us[uid]={uid,n:d.n,ci:d.ci,tel:d.tel,role:d.role,mustChange:true,salt,hash:await this.hash(d.pass,salt),at:Date.now()};s("users",us);return pub(us[uid])},
-  async listUsers(){return Object.values(g("users",{})).map(pub)},
+   us[uid]={uid,n:d.n,ci:d.ci,tel:d.tel,role:d.role,mod:d.mod||"particular",tut:d.tut||"",nac:d.nac||"",mail:d.mail||"",bpsEst:"sin_enviar",bps:0,activo:true,mustChange:true,salt,hash:await this.hash(d.pass,salt),at:Date.now()};s("users",us);return pub(us[uid])},
+  async listUsers(role){return Object.values(g("users",{})).filter(u=>!role||u.role===role).map(pub)},
+  async updateUser(uid,f){const us=g("users",{});if(us[uid]){["n","nac","mail","tel","activo"].forEach(k=>{if(k in f)us[uid][k]=f[k]});s("users",us)}},
+  async profile(uid){const u=g("users",{})[uid];return u?pub(u):null},
+  async setBps(uid,d){const us=g("users",{});if(us[uid]){us[uid].bpsEst=d.bpsEst;us[uid].bps=+d.bps||0;s("users",us)}},
+  async addLog(uid,txt,by,byName){const l=g("log",[]);l.push({uid,txt,by,byName,ts:Date.now()});s("log",l)},
+  async listLog(uid){return g("log",[]).filter(x=>x.uid===uid)},
   async saveProfile(uid,d){const us=g("users",{});if(us[uid]){us[uid].tel=d.tel;s("users",us)}},
   async listAppts(){return g("appts",[])},
   async putAppt(a){const l=g("appts",[]).filter(x=>!same(x,a));l.push(a);s("appts",l)},
@@ -114,23 +121,28 @@ async function fbBackend(cfg){
  auth.languageCode="es";
  const mailOf=ci=>"ci"+ci+"@ci.jacaranda.uy"; // la persona usa su cédula; Firebase necesita un correo interno
  const uref=uid=>F.doc(db,"users",uid),aid=a=>a.p+"_"+a.f+"_"+a.h.replace(":","");
- const mapU=(id,d)=>({uid:id,n:d.n||"",ci:d.ci||"",tel:d.tel||"",role:d.role||"",mustChange:!!d.mustChange,at:d.at||0});
+ const mapU=(id,d)=>({uid:id,n:d.n||"",ci:d.ci||"",tel:d.tel||"",role:d.role||"",mustChange:!!d.mustChange,at:d.at||0,mod:d.mod||"particular",bpsEst:d.bpsEst||"sin_enviar",bps:+d.bps||0,nac:d.nac||"",mail:d.mail||"",tut:d.tut||"",activo:d.activo!==false});
  const prof=async u=>{const s=await F.getDoc(uref(u.uid));return s.exists()?mapU(u.uid,s.data()):null};
  return {
   mode:"firebase",
-  init(cb){Au.onAuthStateChanged(auth,async u=>{let p=null;if(u){try{p=await prof(u)}catch(e){}if(!p){try{await Au.signOut(auth)}catch(e){}}}cb(p)})},
+  init(cb){Au.onAuthStateChanged(auth,async u=>{let p=null;if(u){try{p=await prof(u)}catch(e){}if(p&&p.activo===false)p=null;if(!p){try{await Au.signOut(auth)}catch(e){}}}cb(p)})},
   async login(ci,pass){const c=await Au.signInWithEmailAndPassword(auth,mailOf(ci),pass),p=await prof(c.user);
-   if(!p){await Au.signOut(auth);throw new Error("Tu cuenta todavía no está habilitada. Consultá en la clínica.")}return p},
+   if(!p||p.activo===false){await Au.signOut(auth);throw new Error(p?"Tu cuenta está desactivada. Consultá en la clínica.":"Tu cuenta todavía no está habilitada. Consultá en la clínica.")}return p},
   logout:()=>Au.signOut(auth),
   async changePassword(uid,pass){await Au.updatePassword(auth.currentUser,pass);await F.updateDoc(uref(uid),{mustChange:false});return prof(auth.currentUser)},
   async createUser(d){ // se crea con una segunda instancia para no cerrar la sesión del funcionario
    const A2=A.initializeApp(cfg,"sec"+Date.now()),a2=Au.getAuth(A2),bye=async()=>{try{await A.deleteApp(A2)}catch(x){}};let c;
    try{c=await Au.createUserWithEmailAndPassword(a2,mailOf(d.ci),d.pass)}catch(e){await bye();throw e}
-   try{await F.setDoc(uref(c.user.uid),{n:d.n,ci:d.ci,tel:d.tel,role:d.role,mustChange:true,by:auth.currentUser.uid,at:Date.now()})}
+   try{await F.setDoc(uref(c.user.uid),{n:d.n,ci:d.ci,tel:d.tel,role:d.role,mod:d.mod||"particular",tut:d.tut||"",nac:d.nac||"",mail:d.mail||"",bpsEst:"sin_enviar",bps:0,activo:true,mustChange:true,by:auth.currentUser.uid,at:Date.now()})}
    catch(e){try{await Au.deleteUser(c.user)}catch(x){}await bye();throw e}
    try{await Au.signOut(a2)}catch(x){}await bye();return {uid:c.user.uid,n:d.n,ci:d.ci,tel:d.tel,role:d.role};
   },
-  async listUsers(){const s=await F.getDocs(F.collection(db,"users"));return s.docs.map(x=>mapU(x.id,x.data()))},
+  async listUsers(role){const s=await F.getDocs(F.query(F.collection(db,"users"),F.where("role","==",role)));return s.docs.map(x=>mapU(x.id,x.data()))},
+  async profile(uid){const x=await F.getDoc(uref(uid));return x.exists()?mapU(uid,x.data()):null},
+  updateUser:(uid,f)=>{const o={};["n","nac","mail","tel","activo"].forEach(k=>{if(k in f)o[k]=f[k]});return F.updateDoc(uref(uid),o)},
+  setBps:(uid,d)=>F.updateDoc(uref(uid),{bpsEst:d.bpsEst,bps:+d.bps||0}),
+  addLog:(uid,txt,by,byName)=>F.addDoc(F.collection(db,"historial"),{uid,txt,by,byName,ts:Date.now()}),
+  async listLog(uid){const q=await F.getDocs(F.query(F.collection(db,"historial"),F.where("uid","==",uid)));return q.docs.map(d=>d.data())},
   saveProfile:(uid,d)=>F.updateDoc(uref(uid),{tel:d.tel}),
   async listAppts(){const s=await F.getDocs(F.collection(db,"turnos"));return s.docs.map(d=>d.data())},
   putAppt:a=>F.setDoc(F.doc(db,"turnos",aid(a)),a),
@@ -147,21 +159,23 @@ async function fbBackend(cfg){
 // ===== Estado global =====
 const HASFB=!!(window.FIREBASE_CONFIG&&window.FIREBASE_CONFIG.apiKey);
 const DEMO=mkLocal(sessionStorage,"jd_",false);
-const DEMO_USER={uid:"demo",n:"Invitado (demo)",ci:"12345672",tel:"091234567",role:"paciente",mustChange:false,demo:true};
+const DEMO_USER={uid:"demo",n:"Invitado (demo)",ci:"12345672",tel:"091234567",role:"paciente",mod:"particular",bpsEst:"sin_enviar",bps:0,activo:true,mustChange:false,demo:true};
 let REAL=null,B=null,BERR="",me=null,APPTS=[],MYDOCS=[],USERS=[],ALLDOCS=[],cur="inicio",filt="Todas";
+const base=p=>Math.max(0,PRECIO[p.e]-(me&&!me.demo&&me.mod==="bps"&&me.bpsEst==="aprobado"?me.bps||0:0)); // con BPS la seña se calcula sobre el remanente
 const tomado=(p,f,h)=>APPTS.some(a=>a.p===p.id&&a.f===f&&a.h===h);
 const libres=p=>fechas(p).reduce((n,d)=>n+p.h.filter(h=>!tomado(p,iso(d),h)).length,0);
 const ini=p=>p.n.split(" ").slice(1).map(w=>w[0]).join("");
 const home=()=>!me?"ingresar":me.mustChange&&!me.demo?"cambiar":{paciente:"cuenta",funcionario:"panel",admin:"admin"}[me.role]||"inicio";
-const EST={revision:["En revisión","y"],aprobado:["Aprobado","g"],rechazado:["Rechazado","r"]};
+const EST={revision:["En revisión","y"],aprobado:["Aprobado","g"],rechazado:["No aprobado","r"]};
 const pill=e=>e&&EST[e]?`<span class="st ${EST[e][1]}">${EST[e][0]}</span>`:'<span class="st n">Pendiente</span>';
 const uname=uid=>{const u=USERS.find(x=>x.uid===uid);return u?u.n:"—"};
 async function refresh(){
  APPTS=[];MYDOCS=[];USERS=[];ALLDOCS=[];
+ if(me&&!me.demo&&!me.mustChange){try{const p=await B.profile(me.uid);if(p)me={...me,...p};if(p&&p.activo===false){try{await B.logout()}catch(e){}me=null;toast("Tu cuenta fue desactivada.")}}catch(e){}}
  if(me&&!(me.mustChange&&!me.demo)){
   try{APPTS=await B.listAppts()}catch(e){}
   if(me.role==="paciente"){try{MYDOCS=await B.listDocs(me.uid)}catch(e){}}
-  else{try{USERS=await B.listUsers()}catch(e){}if(me.role==="funcionario"){try{ALLDOCS=await B.listDocs()}catch(e){}}}
+  else{try{USERS=await B.listUsers(me.role==="funcionario"?"paciente":"funcionario")}catch(e){}if(me.role==="funcionario"){try{ALLDOCS=await B.listDocs()}catch(e){}}}
  }
  chrome();paint();
 }
@@ -190,6 +204,7 @@ function route(){
  let r=location.hash.replace("#","")||"inicio";if(!ROUTES.includes(r))r="inicio";
  if(!BOOTED&&PROT.includes(r)){$$(".page").forEach(p=>p.hidden=true);return}
  if(me&&me.mustChange&&!me.demo)r="cambiar";
+ else if(me&&!me.demo&&me.role!=="paciente"&&r!==home())r=home(); // administrador y funcionario solo ven su vista
  else if(r==="cambiar")r=me?home():"ingresar";
  else if(r==="ingresar"&&me)r=home();
  else if(["cuenta","panel","admin"].includes(r)){const need={cuenta:"paciente",panel:"funcionario",admin:"admin"}[r];if(!me)r="ingresar";else if(me.role!==need)r=home()}
@@ -205,7 +220,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){menu(false);close()
 document.addEventListener("click",e=>{if(!nav.contains(e.target))menu(false)});
 $$("[data-go]").forEach(b=>b.onclick=()=>go(b.dataset.go));
 $("#navIng").onclick=()=>go(me?home():"ingresar");
-$("#navOut").onclick=e=>{e.preventDefault();salir()};
+$("#navOut").onclick=e=>{e.preventDefault();salir()};$("#privOut").onclick=()=>salir();
 
 function chrome(){
  const ok=me&&!(me.mustChange&&!me.demo),tgt=ok?home():me?"cambiar":"ingresar";
@@ -214,6 +229,11 @@ function chrome(){
  $("#liOut").hidden=!me||!!me.demo;$("#demoBar").hidden=!(me&&me.demo);
  const lb=$("#localBar");lb.hidden=!(B&&B.mode==="local"&&!me);
  lb.innerHTML=lb.hidden?"":"<b>Modo de pruebas (sin Firebase):</b> los datos viven solo en este navegador. Administración: 1.234.567-2 / admin1234 · Funcionario: 4.123.456-3 / func1234.";
+ const st=!!me&&!me.demo&&me.role!=="paciente";
+ document.body.dataset.shell=st?me.role:"public";
+ $("#privRol").textContent=st?(me.role==="admin"?"Administrador supremo":"Funcionario"):"";$("#privNom").textContent=st?me.n:"";
+ $$("#menu li").forEach(li=>{const x=li.querySelector("a[data-r]");if(x&&["inicio","nosotros","reservar","profesionales","contacto"].includes(x.dataset.r))li.hidden=st});
+ $(".logo").href="#"+(st?home():"inicio");
  $$("[data-demo]").forEach(b=>b.hidden=!!me);$("#heroIng").hidden=!!me;
  $$("[data-agendar]").forEach(b=>b.hidden=!!me&&me.role!=="paciente");
 }
@@ -249,13 +269,14 @@ let W={};
 async function reserva(id){
  if(!me){LMSG="Ingresá con tu cuenta (o probá el demo) para agendar tu cita.";go("ingresar");return}
  if(me.role!=="paciente"){toast("Las citas las reservan los pacientes desde su cuenta.");return}
- try{APPTS=await B.listAppts()}catch(e){}
+ try{APPTS=await B.listAppts();if(!me.demo){MYDOCS=await B.listDocs(me.uid);const p=await B.profile(me.uid);if(p)me={...me,...p}}}catch(e){}
+ const bq=bloqueo(Object.fromEntries(MYDOCS.map(d=>[d.i,d])));if(bq){toast(bq);go("cuenta");return}
  W={pres:0,card:0,step:id?2:1,p:id?PROS.find(x=>x.id===id):null,f:null,h:null,esp:"Todas"};wz();open("#mBook");
 }
 async function guardar(c){
  try{APPTS=await B.listAppts()}catch(e){}
  if(tomado(W.p,W.f,W.h)){toast("Ese horario se acaba de ocupar. Elegí otro");W.card=0;W.step=2;W.h=null;wz();return false}
- try{await B.putAppt({u:me.uid,p:W.p.id,f:W.f,h:W.h,s:PRECIO[W.p.e]/2,c})}catch(e){toast(errMsg(e));return false}
+ try{await B.putAppt({u:me.uid,p:W.p.id,f:W.f,h:W.h,s:base(W.p)/2,c})}catch(e){toast(errMsg(e));return false}
  await refresh();return true;
 }
 function wz(){
@@ -267,7 +288,7 @@ function wz(){
  }else if(s===2){
   h+=`<button class="back" data-back>← Cambiar profesional</button><h3>Agenda de ${p.n}</h3><p class="note">${p.e} · tocá un horario libre. «Tuyo» es una cita que ya reservaste.</p><div class="agwrap"><table class="ag"><thead><tr><th></th>${p.h.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>${fechas(p).map(d=>{const f=iso(d);return `<tr><th>${DN[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}</th>${p.h.map(x=>{const t=tomado(p,f,x),mine=APPTS.some(a=>a.p===p.id&&a.f===f&&a.h===x&&a.u===me.uid);return `<td><button data-ag="${f}|${x}" class="${mine?"mine":t?"occ":W.f===f&&W.h===x?"on":""}" ${t?"disabled":""}>${mine?"Tuyo":t?"Ocupado":W.f===f&&W.h===x?"✓":"Libre"}</button></td>`}).join("")}</tr>`}).join("")}</tbody></table></div><p class="note">${W.f&&W.h?"Elegiste: <b>"+lbl(W.f)+" · "+W.h+" h</b>":"Elegí un horario para continuar."}</p><button class="btn full" id="wNext" ${W.f&&W.h?"":"disabled"}>Continuar a la seña</button>`;
  }else if(s===3&&W.card){
-  const se=PRECIO[p.e]/2;
+  const se=base(p)/2;
   h+=`<button class="back" id="cBack">← Elegir otra forma de pago</button><h3>Pagar con tarjeta</h3><div class="sum"><div><span>Cita</span><b>${p.n} · ${lbl(W.f)} · ${W.h} h</b></div><div class="tot"><span>Seña (50 %)</span><b>${money(se)}</b></div></div>
   <form id="cForm" autocomplete="on" novalidate>
    <label for="cNum">Número de tarjeta</label><input id="cNum" inputmode="numeric" autocomplete="cc-number" placeholder="0000 0000 0000 0000" maxlength="23">
@@ -277,8 +298,8 @@ function wz(){
    <button class="btn full" type="submit">Pagar ${money(se)}</button></form>
   <p class="note">🔒 Versión de demostración: los datos de la tarjeta no se guardan ni se envían a ningún lado.</p>`;
  }else if(s===3){
-  const pr=PRECIO[p.e],se=pr/2;
-  h+=`<button class="back" data-back>← Cambiar fecha u hora</button><h3>Abonar la seña</h3><div class="sum"><div><span>Profesional</span><b>${p.n}</b></div><div><span>Cita</span><b>${lbl(W.f)} · ${W.h} h</b></div><div><span>Consulta</span><b>${money(pr)}</b></div><div class="tot"><span>Seña (50 %)</span><b>${money(se)}</b></div></div>`
+  const pr=base(p),se=pr/2;
+  h+=`<button class="back" data-back>← Cambiar fecha u hora</button><h3>Abonar la seña</h3><div class="sum"><div><span>Profesional</span><b>${p.n}</b></div><div><span>Cita</span><b>${lbl(W.f)} · ${W.h} h</b></div><div><span>${me.mod==="bps"&&!me.demo?"Consulta (saldo no cubierto por BPS)":"Consulta"}</span><b>${money(pr)}</b></div><div class="tot"><span>Seña (50 %)</span><b>${money(se)}</b></div></div>`
   +`<p class="note">Elegí cómo pagar la seña de <b>${money(se)}</b>:</p><div class="pays">
    <button class="pay" id="wCard"><span class="pi">💳</span><span><b>Tarjeta de crédito o débito</b><br><span class="note">Visa · Mastercard · OCA · Creditel</span></span><em>Pagar →</em></button>
    <a class="pay" target="_blank" rel="noopener" href="${PAGO.mp}"><span class="pi mp">MP</span><span><b>Mercado Pago</b><br><span class="note">Con tu cuenta, saldo o QR</span></span><em>Pagar →</em></a>
@@ -288,7 +309,7 @@ function wz(){
   <button class="btn full" id="wPaid">Ya aboné la seña</button><p class="note">Pagá primero y después tocá este botón.</p>
   <div class="pres"><b>¿No podés pagar por la web?</b><p>Podés venir a la clínica (${DIR.split(",")[0]}) y abonar la seña con POS o en efectivo.</p><div class="row2"><a class="btn ghost sm" target="_blank" rel="noopener" href="${MAPS}">📍 Ver en Google Maps</a><button class="btn ghost sm" id="wPres">Voy a pagar en la clínica</button></div></div>`;
  }else{
-  const se=PRECIO[p.e]/2;
+  const se=base(p)/2;
   if(W.pres)h+=`<div class="okbox"><div class="check">✓</div><h3>¡Cita reservada!</h3><p>Abonás la seña de <b>${money(se)}</b> en la clínica, con POS o en efectivo: <b>${DIR.split(",")[0]}</b>.</p><a class="btn full" target="_blank" rel="noopener" href="${MAPS}">📍 Cómo llegar</a><p class="note">Mientras tanto, cargá tu documentación: cédula, constancia del BPS e informe médico.</p><button class="btn ghost full" id="wSent">Cargar documentos</button></div>`;
   else h+=`<div class="okbox"><div class="check">✓</div><h3>¡Perfecto! La seña ya quedó abonada correctamente.</h3><p>Ahora debés mandar el comprobante al WhatsApp: <b>${WSP.mostrar}</b></p><a class="btn wa full" target="_blank" rel="noopener" href="${wa("Hola, soy "+me.n+". Te envío el comprobante de la seña de "+money(se)+" para mi cita con "+p.n+" el "+lbl(W.f)+" a las "+W.h+" h.")}">${WAI} Enviar comprobante por WhatsApp</a><p class="note">Después de enviarlo, cargá tu documentación: cédula, constancia del BPS e informe médico.</p><button class="btn full" id="wSent">Ya envié el comprobante · Cargar documentos</button></div>`;
  }
@@ -341,12 +362,18 @@ function paint(){
 }
 
 // ===== Mi cuenta (paciente) =====
+const bloqueo=dm=>{
+ if(!me||me.demo)return"";
+ if(!reqDocs(me.mod).every(i=>dm[i]&&dm[i].estado==="aprobado"))return"Vas a poder reservar cuando la clínica apruebe toda tu documentación.";
+ if(me.mod==="bps"&&me.bpsEst!=="aprobado")return"Tu documentación está aprobada. Falta que el BPS apruebe la cobertura: la clínica te habilita para reservar apenas la confirme.";
+ return"";
+};
 function resumen(dm){
- const l=DOCS.map((_,i)=>dm[i]),n=l.filter(Boolean).length,ap=l.filter(x=>x&&x.estado==="aprobado").length;
- if(ap===DOCS.length)return["ok","¡Documentación aprobada!","La clínica ya revisó todos tus documentos.",ap];
+ const RQ=reqDocs(me.mod),l=RQ.map(i=>dm[i]),n=l.filter(Boolean).length,ap=l.filter(x=>x&&x.estado==="aprobado").length;
+ if(ap===RQ.length)return["ok","¡Documentación aprobada!","La clínica ya revisó todos tus documentos.",ap];
  if(l.some(x=>x&&x.estado==="rechazado"))return["bad","Hay documentos rechazados","La clínica se va a comunicar con vos por teléfono. Después podés volver a subirlos.",ap];
- if(n===DOCS.length)return["","Documentación en revisión","La clínica la revisa en 24 a 48 horas hábiles. Que llegue no significa que esté aprobada.",ap];
- return["","Cargá tu documentación","Faltan "+(DOCS.length-n)+" documento(s) por subir.",ap];
+ if(n===RQ.length)return["","Documentación en revisión","La clínica la revisa en 24 a 48 horas hábiles. Que llegue no significa que esté aprobada.",ap];
+ return["","Cargá tu documentación","Faltan "+(RQ.length-n)+" documento(s) por subir.",ap];
 }
 function paintCuenta(){
  $("#cAv").textContent=iniciales(me.n);$("#cNom").textContent=me.n;
@@ -354,16 +381,18 @@ function paintCuenta(){
  const dm={};MYDOCS.forEach(d=>dm[d.i]=d);
  const [cl,tit,sub,ap]=resumen(dm),est=cl==="ok"?"g":cl==="bad"?"r":"y";
  $("#cEst").innerHTML=`<span class="st ${est}">${tit}</span>`;
- $("#p-docs").innerHTML=`<div class="alert ${cl}"><b>${tit}</b><div class="bar"><i style="width:${ap/DOCS.length*100}%"></i></div><span class="note">${ap} de ${DOCS.length} aprobados · ${sub}</span></div>`
- +DOCS.map((d,i)=>{const f=dm[i],puede=!f||f.estado!=="aprobado";
+ $("#p-docs").innerHTML=`<div class="alert ${cl}"><b>${tit}</b><div class="bar"><i style="width:${ap/reqDocs(me.mod).length*100}%"></i></div><span class="note">${ap} de ${reqDocs(me.mod).length} obligatorios aprobados · ${sub}</span></div>`
+ +docsDe(me.mod).map(i=>{const d=DOCS[i],f=dm[i],puede=!f||f.estado!=="aprobado";
   return `<div class="row"><div><b>${d}</b><br><span class="note">${f?esc(f.name)+" · "+esc(f.date):"JPG, PNG o PDF (las fotos se comprimen solas)"}</span>${f&&f.estado==="rechazado"?`<br><span class="note warn">La clínica se va a comunicar con vos${me.tel?" al "+esc(me.tel):""}.${f.motivo?" Motivo: "+esc(f.motivo):""}</span>`:""}${me.demo&&f?`<br><span class="note">Demo · simular revisión: <button class="lnk" data-sim="${f.id}|aprobado">aprobar</button> · <button class="lnk" data-sim="${f.id}|rechazado">rechazar</button></span>`:""}</div><div class="rgt">${pill(f&&f.estado)}${puede?`<span class="btn sm file">${f?"Reemplazar":"Subir"}<input type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" data-d="${i}"></span>`:""}</div></div>`}).join("");
  $$("[data-d]").forEach(inp=>inp.onchange=async()=>{const f=inp.files[0];if(!f)return;
   try{toast("Procesando archivo…");const data=await prepararArchivo(f);await B.putDoc(me.uid,+inp.dataset.d,{name:f.name,date:new Date().toLocaleDateString("es-UY")},data);toast("Documento enviado ✔ · en revisión")}
   catch(e){toast(errMsg(e))}await refresh()});
  $$("[data-sim]").forEach(b=>b.onclick=async()=>{const[id,e]=b.dataset.sim.split("|");await B.setEstado(id,e,e==="rechazado"?"(demo)":"","demo");await refresh()});
  const ap2=APPTS.filter(a=>a.u===me.uid).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h));
- $("#p-agenda").innerHTML=(ap2.length?ap2.map(a=>{const p=PROS.find(x=>x.id===a.p);if(!p)return"";return `<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b><br><span class="note">${p.n} · ${p.e}${a.c===2?"<br>Seña "+money(a.s)+" a abonar en la clínica (POS o efectivo)":a.s?"<br>Seña "+money(a.s)+" abonada · "+(a.c?"comprobante enviado":"falta enviar el comprobante"):""}</span></div><button class="btn ghost sm" data-c="${a.p}|${a.f}|${a.h}">Cancelar</button></div>`}).join(""):'<p class="note">Todavía no tenés turnos.</p>')+'<a class="btn sm" href="#profesionales">Reservar turno</a>';
+ $("#p-agenda").innerHTML=(ap2.length?ap2.map(a=>{const p=PROS.find(x=>x.id===a.p);if(!p)return"";return `<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b><br><span class="note">${p.n} · ${p.e}${a.c===2?"<br>Seña "+money(a.s)+" a abonar en la clínica (POS o efectivo)":a.s?"<br>Seña "+money(a.s)+" abonada · "+(a.c?"comprobante enviado":"falta enviar el comprobante"):""}</span></div><button class="btn ghost sm" data-c="${a.p}|${a.f}|${a.h}">Cancelar</button></div>`}).join(""):'<p class="note">Todavía no tenés turnos.</p>')+(bloqueo(dm)?`<div class="alert"><b>Reservas todavía no habilitadas</b><br><span class="note">${bloqueo(dm)}</span></div>`:'<a class="btn sm" href="#profesionales">Reservar turno</a>');
  $$("[data-c]").forEach(b=>b.onclick=async()=>{const[p,f,h]=b.dataset.c.split("|");try{await B.delAppt({p:+p,f,h});toast("Turno cancelado")}catch(e){toast(errMsg(e))}await refresh()});
+ $("#tabBps").hidden=me.mod!=="bps";
+ if(me.mod==="bps")$("#p-bps").innerHTML=`<div class="alert ${me.bpsEst==="aprobado"?"ok":me.bpsEst==="no_aprobado"?"bad":""}"><b>${BPSE[me.bpsEst]||BPSE.sin_enviar}</b><br><span class="note">${me.bpsEst==="aprobado"?"El BPS aprobó un importe de "+money(me.bps)+" por sesión. La seña es el 50 % del saldo que no cubre el BPS.":me.bpsEst==="enviado"?"La clínica ya envió tu documentación al BPS. Te avisamos cuando respondan.":me.bpsEst==="no_aprobado"?"El BPS no aprobó la cobertura. La clínica se va a comunicar con vos.":"La clínica enviará tu documentación al BPS cuando esté aprobada."}</span></div>`+(me.bpsEst==="aprobado"?tablaCob(me.bps)+'<p class="note">Costo total de la sesión, cobertura del BPS, saldo restante que paga la familia y seña para reservar.</p>':"");
  const pp=$("#p-perfil");if(!pp.contains(document.activeElement)){
   pp.innerHTML=[["Nombre",me.n],["Cédula","CI "+fmtCi(me.ci)],["Tipo","Paciente"]].map(r=>`<div class="row"><span class="note">${r[0]}</span><b>${esc(r[1])}</b></div>`).join("")+`<form id="fTel" novalidate class="row" style="align-items:flex-end"><div style="flex:1;min-width:200px"><label for="tT">Teléfono de contacto</label><input id="tT" inputmode="tel" value="${esc(me.tel)}"></div><button class="btn sm" type="submit">Guardar</button></form><p class="note err" id="tE"></p><p class="note">Para corregir nombre o cédula, consultá en la clínica.</p>`;
   $("#fTel").onsubmit=async e=>{e.preventDefault();const t=$("#tT").value.trim();if(!telOk(t)){$("#tE").textContent="Ingresá un teléfono válido.";return}
@@ -371,25 +400,27 @@ function paintCuenta(){
  }
 }
 
-// ===== Crear cuentas (funcionario crea pacientes · administrador crea funcionarios) =====
-async function crear(role,ids){
- const n=$(ids.n).value.trim(),c=$(ids.c).value.trim(),t=$(ids.t).value.trim(),er=$(ids.e);
- const m=n.length<3?"Ingresá el nombre completo.":!ciValida(c)?"La cédula no es válida. Revisá el número y el dígito final (ej. 1.234.567-2).":!telOk(t)?"Ingresá un teléfono de contacto válido.":"";
- er.textContent=m;if(m)return;
- const btn=$(ids.f+" button[type=submit]");btn.disabled=true;
- try{
-  const pass=tempPass(),u=await B.createUser({n,ci:ciN(c),tel:t,role,pass});
-  $(ids.f).reset();er.textContent="";
-  info(`<div class="okbox"><div class="check">✓</div><h3>Cuenta creada</h3><p>${esc(u.n)} · CI ${fmtCi(u.ci)}</p><div class="cred"><span>Contraseña temporal</span><b>${esc(pass)}</b></div><button class="btn full" id="tpc">Copiar contraseña</button><p class="note">Entregásela ahora: no se vuelve a mostrar. Al ingresar por primera vez la persona tiene que elegir una propia.</p></div>`);
-  $("#tpc").onclick=()=>{try{navigator.clipboard.writeText(pass).then(()=>toast("Copiada ✔"),()=>toast("No se pudo copiar"))}catch(e){toast("No se pudo copiar")}};
-  await refresh();
- }catch(x){er.textContent=errMsg(x)}finally{btn.disabled=false}
-}
-$("#fPac").onsubmit=e=>{e.preventDefault();crear("paciente",{n:"#nPn",c:"#nPc",t:"#nPt",e:"#nPe",f:"#fPac"})};
-$("#fFun").onsubmit=e=>{e.preventDefault();crear("funcionario",{n:"#nFn",c:"#nFc",t:"#nFt",e:"#nFe",f:"#fFun"})};
+// ===== Cobertura BPS =====
+const MODS={particular:"Particular",bps:"Con cobertura BPS"};
+const BPSE={sin_enviar:"Sin enviar a BPS",enviado:"Enviado a BPS",aprobado:"Cobertura aprobada",no_aprobado:"Cobertura no aprobada"};
+const cobertura=(esp,bps)=>{const c=PRECIO[esp],cub=Math.min(c,Math.max(0,+bps||0)),rest=c-cub;return{c,cub,rest,se:rest/2}};
+const tablaCob=bps=>`<div class="agwrap"><table class="ag"><thead><tr><th>Especialidad</th><th>Costo total</th><th>Cubre BPS</th><th>Saldo restante</th><th>Seña (50 %)</th></tr></thead><tbody>${Object.keys(PRECIO).map(e=>{const x=cobertura(e,bps);return `<tr><th>${e}</th><td>${money(x.c)}</td><td>${money(x.cub)}</td><td>${money(x.rest)}</td><td><b>${money(x.se)}</b></td></tr>`}).join("")}</tbody></table></div>`;
+async function logf(uid,txt){try{await B.addLog(uid,txt,me.uid,me.n)}catch(e){}}
 
-// ===== Panel de funcionarios =====
-const contacto=u=>`<div class="sum"><div><span>Paciente</span><b>${esc(u.n||"—")}</b></div><div><span>Cédula</span><b>${u.ci?"CI "+fmtCi(u.ci):"—"}</b></div><div><span>Teléfono</span><b>${esc(u.tel||"—")}</b></div></div>${u.tel?`<div class="row2"><a class="btn sm" href="tel:${esc(String(u.tel).replace(/[^\d+]/g,""))}">📞 Llamar</a><a class="btn wa sm" target="_blank" rel="noopener" href="${waTel(u.tel)}">WhatsApp</a></div>`:""}`;
+// ===== Funcionario: crear pacientes =====
+const credenciales=(u,extra,pass)=>{info(`<div class="okbox"><div class="check">✓</div><h3>Cuenta creada</h3><p>${esc(u.n)} · CI ${fmtCi(u.ci)}${extra}</p><div class="cred"><span>Contraseña temporal</span><b>${esc(pass)}</b></div><button class="btn full" id="tpc">Copiar contraseña</button><p class="note">Entregásela ahora: no se vuelve a mostrar. Al ingresar por primera vez la persona tiene que elegir una propia.</p></div>`);
+ $("#tpc").onclick=()=>{try{navigator.clipboard.writeText(pass).then(()=>toast("Copiada ✔"),()=>toast("No se pudo copiar"))}catch(e){toast("No se pudo copiar")}}};
+$("#fPac").onsubmit=async e=>{
+ e.preventDefault();const n=$("#nPn").value.trim(),tu=$("#nPtu").value.trim(),c=$("#nPc").value.trim(),t=$("#nPt").value.trim(),mod=$("#nPm").value,er=$("#nPe");
+ const m=n.length<3?"Ingresá el nombre del paciente.":tu.length<3?"Ingresá el nombre del tutor.":!ciValida(c)?"La cédula no es válida. Revisá el número y el dígito final (ej. 1.234.567-2).":!telOk(t)?"Ingresá un teléfono de contacto válido.":"";
+ er.textContent=m;if(m)return;const btn=$("#fPac button[type=submit]");btn.disabled=true;
+ try{const pass=tempPass(),u=await B.createUser({n,ci:ciN(c),tel:t,tut:tu,role:"paciente",pass,mod});
+  await logf(u.uid,"Cuenta creada · modalidad: "+MODS[mod]);$("#fPac").reset();er.textContent="";credenciales(u," · "+MODS[mod],pass);await refresh()}
+ catch(x){er.textContent=errMsg(x)}finally{btn.disabled=false}
+};
+
+// ===== Funcionario: panel =====
+const contacto=u=>`<div class="sum"><div><span>Paciente</span><b>${esc(u.n||"—")}</b></div><div><span>Tutor</span><b>${esc(u.tut||"—")}</b></div><div><span>Cédula</span><b>${u.ci?"CI "+fmtCi(u.ci):"—"}</b></div><div><span>Teléfono del tutor</span><b>${esc(u.tel||"—")}</b></div><div><span>Modalidad</span><b>${MODS[u.mod]||"—"}</b></div></div>${u.tel?`<div class="row2"><a class="btn sm" href="tel:${esc(String(u.tel).replace(/[^\d+]/g,""))}">📞 Llamar</a><a class="btn wa sm" target="_blank" rel="noopener" href="${waTel(u.tel)}">WhatsApp</a></div>`:""}`;
 async function verArchivo(id){
  info("<h3>Cargando documento…</h3>");
  try{const data=await B.getFile(id);if(!data){info("<h3>Archivo no disponible</h3>");return}
@@ -397,48 +428,97 @@ async function verArchivo(id){
   info(`<h3>Documento</h3>${blob.type==="application/pdf"?`<iframe class="docview" src="${url}" title="Documento"></iframe>`:`<img class="docview" src="${url}" alt="Documento subido">`}<a class="btn ghost sm" target="_blank" rel="noopener" href="${url}">Abrir en otra pestaña</a>`)}
  catch(e){info("<h3>No se pudo abrir el documento</h3><p class='note'>"+esc(errMsg(e))+"</p>")}
 }
-function rechazar(d){
- const u=USERS.find(x=>x.uid===d.u)||{};
- info(`<h3>Rechazar documento</h3><p class="note">${DOCS[d.i]} · ${esc(d.name)}</p><p>Estos son los datos para comunicarte con la persona:</p>${contacto(u)}<label for="rMot">Motivo (opcional, lo ve el paciente)</label><input id="rMot" placeholder="Ej.: la foto está borrosa"><button class="btn full" id="rOk">Confirmar rechazo</button>`);
- $("#rOk").onclick=async()=>{try{await B.setEstado(d.id,"rechazado",$("#rMot").value.trim(),me.uid);close();toast("Documento rechazado · el paciente ya lo ve");await refresh()}catch(e){toast(errMsg(e))}};
+async function setDocEstado(d,estado,motivo){
+ await B.setEstado(d.id,estado,motivo||"",me.uid);
+ await logf(d.u,"Documento «"+DOCS[d.i]+"»: "+EST[estado][0]+(motivo?" · motivo: "+motivo:""));
+ await refresh();
 }
-$("#docList").onclick=async e=>{
- const b=e.target.closest("[data-a]");if(!b)return;const d=ALLDOCS.find(x=>x.id===b.dataset.id);if(!d)return;
- if(b.dataset.a==="ver")verArchivo(d.id);
- else if(b.dataset.a==="no")rechazar(d);
- else if(b.dataset.a==="dat")info(`<h3>Datos de contacto</h3>${d.motivo?`<p class="note">Motivo del rechazo: ${esc(d.motivo)}</p>`:""}${contacto(USERS.find(x=>x.uid===d.u)||{})}`);
- else if(b.dataset.a==="ok"){try{await B.setEstado(d.id,"aprobado","",me.uid);toast("Documento aprobado ✔");await refresh()}catch(x){toast(errMsg(x))}}
-};
+function rechazar(d,from){
+ const u=USERS.find(x=>x.uid===d.u)||{};
+ info(`<h3>Marcar como no aprobado</h3><p class="note">${DOCS[d.i]} · ${esc(d.name)}</p><p>Datos para comunicarte con la familia:</p>${contacto(u)}<label for="rMot">Motivo del rechazo (lo ve la familia)</label><input id="rMot" placeholder="Ej.: la foto está borrosa"><button class="btn full" id="rOk">Confirmar</button>`);
+ $("#rOk").onclick=async()=>{try{await setDocEstado(d,"rechazado",$("#rMot").value.trim());toast("Documento no aprobado · la familia ya lo ve");if(from==="ficha")ficha(d.u);else close()}catch(e){toast(errMsg(e))}};
+}
+async function accionDoc(a,d,from){
+ try{
+  if(a==="ver")verArchivo(d.id);
+  else if(a==="no")rechazar(d,from);
+  else if(a==="dat")info(`<h3>Datos de contacto</h3>${d.motivo?`<p class="note">Motivo del rechazo: ${esc(d.motivo)}</p>`:""}${contacto(USERS.find(x=>x.uid===d.u)||{})}`);
+  else if(a==="fic")ficha(d.u);
+  else if(a==="ok"||a==="rev"){await setDocEstado(d,a==="ok"?"aprobado":"revision","");toast(a==="ok"?"Documento aprobado ✔":"Vuelto a revisión");if(from==="ficha")ficha(d.u)}
+ }catch(x){toast(errMsg(x))}
+}
+$("#docList").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const d=ALLDOCS.find(x=>x.id===b.dataset.id);if(d)accionDoc(b.dataset.a,d,"lista")};
 $("#docF").onchange=paint;$("#pacQ").oninput=paint;
-function agendaDe(uid){
- const u=USERS.find(x=>x.uid===uid)||{},l=APPTS.filter(a=>a.u===uid).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h));
- info(`<h3>Agenda de ${esc(u.n||"paciente")}</h3>${contacto(u)}`+(l.length?l.map(a=>{const p=PROS.find(x=>x.id===a.p);return p?`<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b><br><span class="note">${p.n} · ${p.e}${a.c===2?" · seña a abonar en la clínica":a.s?" · seña "+money(a.s)+(a.c?" · comprobante enviado":" · falta comprobante"):""}</span></div></div>`:""}).join(""):'<p class="note">Todavía no reservó turnos.</p>'));
+const botonesDoc=(d,pre)=>`<button class="btn ghost sm" data-${pre}="ver" data-id="${d.id}">Ver</button>${d.estado!=="aprobado"?`<button class="btn sm" data-${pre}="ok" data-id="${d.id}">Aprobar</button>`:""}${d.estado!=="rechazado"?`<button class="btn ghost sm" data-${pre}="no" data-id="${d.id}">No aprobar</button>`:""}${d.estado!=="revision"?`<button class="btn ghost sm" data-${pre}="rev" data-id="${d.id}">En revisión</button>`:""}`;
+async function ficha(uid){
+ const u=USERS.find(x=>x.uid===uid);if(!u)return;
+ let log=[];try{log=(await B.listLog(uid)).sort((a,b)=>b.ts-a.ts)}catch(e){}
+ const dm={};ALLDOCS.filter(d=>d.u===uid).forEach(d=>dm[d.i]=d);
+ const okDocs=reqDocs(u.mod).every(i=>dm[i]&&dm[i].estado==="aprobado"),hab=okDocs&&(u.mod!=="bps"||u.bpsEst==="aprobado");
+ const ag=APPTS.filter(a=>a.u===uid).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h));
+ info(`<h3>Ficha del paciente</h3>${contacto(u)}
+ <div class="row"><span class="note">Estado general</span><span class="st ${hab?"g":"y"}">${hab?"Reservas habilitadas":"Reservas no habilitadas"}</span></div>
+ <h4 class="fh">Documentación</h4>
+ ${docsDe(u.mod).map(i=>{const f=dm[i];return `<div class="row"><div><b>${DOCS[i]}</b>${reqDocs(u.mod).includes(i)?"":' <span class="note">(opcional)</span>'}<br><span class="note">${f?esc(f.name)+" · "+esc(f.date)+(f.estado==="rechazado"&&f.motivo?" · Motivo: "+esc(f.motivo):""):"Sin cargar"}</span></div><div class="rgt">${pill(f&&f.estado)}${f?botonesDoc(f,"fa"):""}</div></div>`}).join("")}
+ ${u.mod==="bps"?`<h4 class="fh">Cobertura BPS</h4>
+ <label for="fbE">Estado de la gestión</label><select id="fbE">${Object.entries(BPSE).map(([k,v])=>`<option value="${k}" ${u.bpsEst===k?"selected":""}>${v}</option>`).join("")}</select>
+ <label for="fbI">Importe aprobado por el BPS por sesión ($)</label><input id="fbI" inputmode="decimal" value="${u.bps||0}">
+ <div id="fbT">${tablaCob(u.bps)}</div><p class="note">El saldo restante es lo que paga la familia; la seña es el 50 % de ese saldo. Se calcula con el importe ingresado.</p>
+ <button class="btn sm" id="fbS">Guardar cobertura</button>`:""}
+ <h4 class="fh">Agenda</h4>${ag.length?ag.map(a=>{const p=PROS.find(x=>x.id===a.p);return p?`<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b><br><span class="note">${p.n} · ${p.e}${a.c===2?" · seña a abonar en la clínica":a.s?" · seña "+money(a.s)+(a.c?" · comprobante enviado":" · falta comprobante"):""}</span></div></div>`:""}).join(""):'<p class="note">Todavía no reservó turnos.</p>'}
+ <h4 class="fh">Historial de modificaciones</h4>${log.length?log.map(x=>`<div class="row"><div>${esc(x.txt)}<br><span class="note">${new Date(x.ts).toLocaleString("es-UY")} · ${esc(x.byName||"")}</span></div></div>`).join(""):'<p class="note">Sin movimientos todavía.</p>'}`);
+ $("#iBody").onclick=e=>{const b=e.target.closest("[data-fa]");if(!b)return;const d=ALLDOCS.find(x=>x.id===b.dataset.id);if(d)accionDoc(b.dataset.fa,d,"ficha")};
+ if(u.mod==="bps"){
+  $("#fbI").oninput=()=>{$("#fbT").innerHTML=tablaCob($("#fbI").value.replace(",","."))};
+  $("#fbS").onclick=async()=>{const est=$("#fbE").value,imp=Number($("#fbI").value.replace(",","."));
+   if(!(imp>=0)){toast("Ingresá un importe válido");return}
+   if(est==="aprobado"&&!imp&&!confirm("El importe aprobado es $ 0. ¿Confirmás?"))return;
+   try{await B.setBps(uid,{bpsEst:est,bps:imp});await logf(uid,"Cobertura BPS: "+BPSE[est]+(est==="aprobado"?" · importe aprobado "+money(imp)+" por sesión":""));toast("Cobertura guardada ✔");await refresh();ficha(uid)}catch(x){toast(errMsg(x))}};
+ }
 }
 function paintPanel(){
- $("#fSub").textContent="Funcionario: "+me.n+". Podés crear cuentas de pacientes y revisar sus documentos.";
+ $("#fSub").textContent="Funcionario: "+me.n;
  const pend=ALLDOCS.filter(d=>d.estado==="revision").length;$("#ftDoc").textContent="Documentos"+(pend?" ("+pend+")":"");
  const q=$("#pacQ").value.trim().toLowerCase();
- const res=uid=>{const l=ALLDOCS.filter(d=>d.u===uid),ap=l.filter(d=>d.estado==="aprobado").length,rj=l.filter(d=>d.estado==="rechazado").length,rv=l.filter(d=>d.estado==="revision").length;
-  return `<span class="st ${ap===DOCS.length?"g":rj?"r":l.length?"y":"n"}">${ap===DOCS.length?"Aprobada":rj?"Rechazada":rv?"En revisión":"Sin documentos"}</span> <span class="note">${ap}/${DOCS.length} aprobados</span>`};
- $("#pacList").innerHTML=USERS.filter(u=>u.role==="paciente"&&(!q||(u.n+" "+fmtCi(u.ci)+" "+u.ci).toLowerCase().includes(q))).sort((a,b)=>b.at-a.at).map(u=>`<div class="row"><div><b>${esc(u.n)}</b><br><span class="note">CI ${fmtCi(u.ci)} · Tel ${esc(u.tel)||"—"}</span></div><div class="rgt">${res(u.uid)}<button class="btn ghost sm" data-pa="${u.uid}">Ver agenda</button></div></div>`).join("")||'<p class="note">No hay pacientes para mostrar.</p>';
- $$("[data-pa]").forEach(b=>b.onclick=()=>agendaDe(b.dataset.pa));
+ const res=uid=>{const mod=(USERS.find(x=>x.uid===uid)||{}).mod,R=reqDocs(mod),l=ALLDOCS.filter(d=>d.u===uid&&R.includes(d.i)),ap=l.filter(d=>d.estado==="aprobado").length,rj=l.some(d=>d.estado==="rechazado"),rv=l.some(d=>d.estado==="revision");
+  return `<span class="st ${ap===R.length?"g":rj?"r":l.length?"y":"n"}">${ap===R.length?"Aprobada":rj?"No aprobada":rv?"En revisión":"Sin documentos"}</span> <span class="note">${ap}/${R.length}</span>`};
+ $("#pacList").innerHTML=USERS.filter(u=>u.role==="paciente"&&(!q||(u.n+" "+(u.tut||"")+" "+fmtCi(u.ci)+" "+u.ci).toLowerCase().includes(q))).sort((a,b)=>b.at-a.at).map(u=>`<div class="row"><div><b>${esc(u.n)}</b><br><span class="note">CI ${fmtCi(u.ci)} · Tutor: ${esc(u.tut||"—")} · Tel ${esc(u.tel)||"—"}<br>${MODS[u.mod]}${u.mod==="bps"?" · "+BPSE[u.bpsEst]:""}</span></div><div class="rgt">${res(u.uid)}<button class="btn sm" data-fi="${u.uid}">Ver ficha</button></div></div>`).join("")||'<p class="note">No hay pacientes para mostrar.</p>';
+ $$("[data-fi]").forEach(b=>b.onclick=()=>ficha(b.dataset.fi));
  const f=$("#docF").value;
  $("#docList").innerHTML=ALLDOCS.filter(d=>f==="todos"||d.estado===f).sort((a,b)=>(b.ts||0)-(a.ts||0)).map(d=>{const u=USERS.find(x=>x.uid===d.u)||{};
-  return `<div class="row"><div><b>${esc(u.n||"Paciente")}</b> <span class="note">· CI ${u.ci?fmtCi(u.ci):"—"}</span><br><span class="note">${DOCS[d.i]} · ${esc(d.name)} · ${esc(d.date)}${d.estado==="rechazado"&&d.motivo?" · Motivo: "+esc(d.motivo):""}</span></div><div class="rgt">${pill(d.estado)}<button class="btn ghost sm" data-a="ver" data-id="${d.id}">Ver</button>${d.estado!=="aprobado"?`<button class="btn sm" data-a="ok" data-id="${d.id}">Aprobar</button>`:""}${d.estado!=="rechazado"?`<button class="btn ghost sm" data-a="no" data-id="${d.id}">Rechazar</button>`:`<button class="btn ghost sm" data-a="dat" data-id="${d.id}">Datos</button>`}</div></div>`}).join("")||'<p class="note">No hay documentos en este estado.</p>';
+  return `<div class="row"><div><b>${esc(u.n||"Paciente")}</b> <span class="note">· CI ${u.ci?fmtCi(u.ci):"—"} · ${MODS[u.mod]||""}</span><br><span class="note">${DOCS[d.i]} · ${esc(d.name)} · ${esc(d.date)}${d.estado==="rechazado"&&d.motivo?" · Motivo: "+esc(d.motivo):""}</span></div><div class="rgt">${pill(d.estado)}${botonesDoc(d,"a")}<button class="btn ghost sm" data-a="fic" data-id="${d.id}">Ficha</button>${d.estado==="rechazado"?`<button class="btn ghost sm" data-a="dat" data-id="${d.id}">Contacto</button>`:""}</div></div>`}).join("")||'<p class="note">No hay documentos en este estado.</p>';
  const hoy=iso(new Date());
  $("#agList").innerHTML=APPTS.filter(a=>a.f>=hoy).sort((a,b)=>(a.f+a.h).localeCompare(b.f+b.h)).map(a=>{const p=PROS.find(x=>x.id===a.p);if(!p)return"";const u=USERS.find(x=>x.uid===a.u);
   return `<div class="row"><div><b>${lbl(a.f)} · ${a.h} h</b> <span class="note">· ${p.n} (${p.e})</span><br><span class="note">Paciente: ${esc(u?u.n:"—")}${u&&u.tel?" · Tel "+esc(u.tel):""} · ${a.c===2?"seña a abonar en la clínica":a.s?"seña "+money(a.s)+(a.c?" · comprobante enviado":" · falta comprobante"):""}</span></div><button class="btn ghost sm" data-ac="${a.p}|${a.f}|${a.h}">Cancelar</button></div>`}).join("")||'<p class="note">No hay turnos próximos.</p>';
  $$("[data-ac]").forEach(b=>b.onclick=async()=>{if(!confirm("¿Cancelar este turno?"))return;const[p,f,h]=b.dataset.ac.split("|");try{await B.delAppt({p:+p,f,h});toast("Turno cancelado")}catch(e){toast(errMsg(e))}await refresh()});
 }
 
-// ===== Administración (solo crea funcionarios) =====
+// ===== Administrador supremo: gestión de funcionarios (nada más) =====
+$("#fGen").onclick=()=>{$("#nFp").value=tempPass()};
+$("#fFun").onsubmit=async e=>{
+ e.preventDefault();const n=$("#nFn").value.trim(),c=$("#nFc").value.trim(),nac=$("#nFnac").value,mail=$("#nFm").value.trim(),t=$("#nFt").value.trim(),pass=$("#nFp").value,er=$("#nFe");
+ const m=n.length<3?"Ingresá el nombre completo.":!ciValida(c)?"La cédula no es válida. Revisá el número y el dígito final.":!nac||nac>iso(new Date())?"Ingresá una fecha de nacimiento válida.":!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)?"Ingresá un correo electrónico válido.":!telOk(t)?"Ingresá un teléfono válido.":pass.length<8||!/[a-zA-Z]/.test(pass)||!/\d/.test(pass)?"La contraseña temporal debe tener 8 caracteres o más, con letras y números.":"";
+ er.textContent=m;if(m)return;const btn=$("#fFun button[type=submit]");btn.disabled=true;
+ try{const u=await B.createUser({n,ci:ciN(c),nac,mail,tel:t,role:"funcionario",pass});$("#fFun").reset();er.textContent="";credenciales(u," · Funcionario",pass);await refresh()}
+ catch(x){er.textContent=errMsg(x)}finally{btn.disabled=false}
+};
+function editarFun(u){
+ info(`<h3>Modificar funcionario</h3><p class="note">CI ${fmtCi(u.ci)} (la cédula no se puede cambiar)</p><form id="fEd" class="frm" novalidate><div><label for="eN">Nombre completo</label><input id="eN" value="${esc(u.n)}"></div><div><label for="eNac">Fecha de nacimiento</label><input id="eNac" type="date" value="${esc(u.nac)}"></div><div><label for="eM">Correo electrónico</label><input id="eM" type="email" value="${esc(u.mail)}"></div><div><label for="eT">Teléfono</label><input id="eT" inputmode="tel" value="${esc(u.tel)}"></div><p class="note err" id="eE"></p><button class="btn" type="submit">Guardar cambios</button></form>`);
+ $("#fEd").onsubmit=async e=>{e.preventDefault();const n=$("#eN").value.trim(),nac=$("#eNac").value,mail=$("#eM").value.trim(),t=$("#eT").value.trim();
+  const m=n.length<3?"Ingresá el nombre completo.":!nac||nac>iso(new Date())?"Fecha de nacimiento no válida.":!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)?"Correo no válido.":!telOk(t)?"Teléfono no válido.":"";
+  $("#eE").textContent=m;if(m)return;
+  try{await B.updateUser(u.uid,{n,nac,mail,tel:t});close();toast("Datos actualizados ✔");await refresh()}catch(x){$("#eE").textContent=errMsg(x)}};
+}
 function paintAdmin(){
- $("#aSub").textContent="Administrador: "+me.n+". Desde acá se crean las cuentas de los funcionarios.";
- $("#funList").innerHTML=USERS.filter(u=>u.role==="funcionario").sort((a,b)=>b.at-a.at).map(u=>`<div class="row"><div><b>${esc(u.n)}</b><br><span class="note">CI ${fmtCi(u.ci)} · Tel ${esc(u.tel)||"—"}</span></div><span class="st ${u.mustChange?"y":"g"}">${u.mustChange?"Aún no cambió la clave":"Activo"}</span></div>`).join("")||'<p class="note">Todavía no hay funcionarios.</p>';
+ $("#aSub").textContent="Administrador supremo: "+me.n;
+ $("#funList").innerHTML=USERS.filter(u=>u.role==="funcionario").sort((a,b)=>b.at-a.at).map(u=>`<div class="row"><div><b>${esc(u.n)}</b><br><span class="note">CI ${fmtCi(u.ci)} · ${esc(u.mail)||"sin correo"} · Tel ${esc(u.tel)||"—"}${u.nac?" · Nac. "+esc(u.nac):""}</span></div><div class="rgt"><span class="st ${u.activo?"g":"r"}">${u.activo?"Activa":"Desactivada"}</span><button class="btn ghost sm" data-fe="${u.uid}">Modificar</button><button class="btn ghost sm" data-ft="${u.uid}">${u.activo?"Desactivar":"Activar"}</button></div></div>`).join("")||'<p class="note">Todavía no hay funcionarios.</p>';
+ $$("[data-fe]").forEach(b=>b.onclick=()=>editarFun(USERS.find(x=>x.uid===b.dataset.fe)));
+ $$("[data-ft]").forEach(b=>b.onclick=async()=>{const u=USERS.find(x=>x.uid===b.dataset.ft);if(!u||!confirm((u.activo?"¿Desactivar":"¿Activar")+" la cuenta de "+u.n+"?"))return;
+  try{await B.updateUser(u.uid,{activo:!u.activo});toast(u.activo?"Cuenta desactivada":"Cuenta activada");await refresh()}catch(x){toast(errMsg(x))}});
 }
 
 // ===== Video instructivo =====
-$("#btnVideo").onclick=()=>{$("#vBox").innerHTML=VIDEO_URL?`<iframe src="${VIDEO_URL}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px" allowfullscreen></iframe>`:'<div class="vid">'+["Aceptás el tratamiento en la clínica y te crean la cuenta","Ingresás con tu cédula y la contraseña temporal, y elegís una propia","Tocás «Agendar cita» y elegís profesional, día y hora","Abonás la seña del 50 % y mandás el comprobante","Cargás cédula, constancia del BPS e informe médico"].map((t,i)=>`<div class="vs" style="animation-delay:${i*1.2}s"><span class="num">${i+1}</span> ${t}</div>`).join("")+'</div><p class="note">Acá va el video explicativo de la clínica.</p>';open("#mVideo")};
+$("#btnVideo").onclick=()=>{$("#vBox").innerHTML=VIDEO_URL?`<iframe src="${VIDEO_URL}" style="width:100%;aspect-ratio:16/9;border:0;border-radius:12px" allowfullscreen></iframe>`:'<div class="vid">'+["Hacés la entrevista y la clínica te crea la cuenta","Ingresás con tu cédula y la contraseña temporal, y elegís una propia","Cargás cédulas e informes (con BPS, también el psicodiagnóstico)","La clínica aprueba y, si hay BPS, te habilita al aprobarse el importe","Elegís profesional, día y hora, y abonás la seña del 50 %"].map((t,i)=>`<div class="vs" style="animation-delay:${i*1.2}s"><span class="num">${i+1}</span> ${t}</div>`).join("")+'</div><p class="note">Acá va el video explicativo de la clínica.</p>';open("#mVideo")};
 
 // ===== Arranque =====
 pintaPros();

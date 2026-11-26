@@ -69,7 +69,7 @@ input:focus,select:focus{outline:0;border-color:var(--v);box-shadow:0 0 0 3px rg
 .slots button:disabled{opacity:.3;text-decoration:line-through;cursor:not-allowed}
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;animation:fadeUp .4s}
 .st{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;color:#050507}
-.st.r{background:#f87171}.st.y{background:#facc15}.st.g{background:#4ade80}
+.st.r{background:#f87171}.st.y{background:#fb923c}.st.g{background:#4ade80}
 .file{position:relative;overflow:hidden}
 .file input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .note{font-size:13px;color:var(--mu)}
@@ -191,3 +191,14 @@ table.ag button.occ{opacity:.35;cursor:not-allowed;text-decoration:line-through}
 table.ag button.mine{background:rgba(74,222,128,.18);border-color:#4ade80;color:#4ade80;cursor:default}
 @media(max-width:820px){#demoBar,#localBar{top:62px}.tabs{overflow-x:auto}.tabs button{white-space:nowrap}}
 @media(max-width:520px){.ncta{display:none}.logo{font-size:15px}}
+
+/* ===== Entornos privados: administrador y funcionario no ven la página pública ===== */
+#privBar{display:none;position:sticky;top:0;z-index:20;background:rgba(5,5,7,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+#privBar .wrap{display:flex;align-items:center;gap:14px;padding-top:10px;padding-bottom:10px;flex-wrap:wrap}
+#privBar .logo{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:2px;color:var(--v2)}
+#privBar .privrol{background:var(--v);padding:3px 12px;border-radius:99px;font-size:12px;font-weight:700}
+#privBar #privNom{margin-left:auto}
+body[data-shell=admin] #privBar,body[data-shell=funcionario] #privBar{display:block}
+body[data-shell=admin] #nav,body[data-shell=funcionario] #nav,body[data-shell=admin] #foot,body[data-shell=funcionario] #foot,body[data-shell=admin] #localBar,body[data-shell=funcionario] #localBar{display:none!important}
+.fh{color:var(--v2);margin:22px 0 6px;font-size:16px}
+.inl{display:flex;gap:8px}.inl input{flex:1;min-width:0}
