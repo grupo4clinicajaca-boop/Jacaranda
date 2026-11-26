@@ -217,7 +217,7 @@ function route(){
  if(location.hash!=="#"+r)history.replaceState(null,"","#"+r);
  cur=r;$$(".page").forEach(p=>p.hidden=p.id!=="pg-"+r);
  $$("#menu a[data-r]").forEach(a=>a.classList.toggle("on",a.dataset.r===r));
- if(r==="ingresar"){$("#lMsg").textContent=LMSG||"Ingresá con tu cédula y la contraseña que te dio la clínica. Las cuentas las crea la clínica cuando aceptás el tratamiento.";LMSG=""}
+ if(r==="ingresar"){$("#lMsg").textContent=LMSG||"Ingresá con la cédula del menor (o la tuya, si sos del equipo) y la contraseña que te dio la clínica. Las cuentas las crea la clínica cuando aceptás el tratamiento.";LMSG=""}
  scrollTo(0,0);menu(false);paint();watch();
 }
 addEventListener("hashchange",route);
@@ -248,7 +248,7 @@ function chrome(){
 const info=h=>{$("#iBody").innerHTML=h;open("#mInfo")};
 $("#fLogin").onsubmit=async e=>{
  e.preventDefault();const er=$("#lErr"),ci=$("#lCi").value,pass=$("#lPass").value,d=ci.replace(/\D/g,"");let m="";
- if(d.length<7||d.length>8)m="Ingresá tu cédula (7 u 8 números).";else if(!pass)m="Ingresá tu contraseña.";
+ if(d.length<7||d.length>8)m="Ingresá la cédula (7 u 8 números).";else if(!pass)m="Ingresá tu contraseña.";
  er.textContent=m;if(m)return;
  const btn=$("#fLogin button[type=submit]");btn.disabled=true;
  try{const u=await B.login(ciN(ci),pass);me=u;$("#lPass").value="";await refresh();toast("¡Listo, "+String(u.n).split(" ")[0]+"! Sesión iniciada");go(home())}
@@ -316,8 +316,8 @@ function wz(){
   <div class="pres"><b>¿No podés pagar por la web?</b><p>Podés venir a la clínica (${DIR.split(",")[0]}) y abonar la seña con POS o en efectivo.</p><div class="row2"><a class="btn ghost sm" target="_blank" rel="noopener" href="${MAPS}">📍 Ver en Google Maps</a><button class="btn ghost sm" id="wPres">Voy a pagar en la clínica</button></div></div>`;
  }else{
   const se=base(p)/2;
-  if(W.pres)h+=`<div class="okbox"><div class="check">✓</div><h3>¡Cita reservada!</h3><p>Abonás la seña de <b>${money(se)}</b> en la clínica, con POS o en efectivo: <b>${DIR.split(",")[0]}</b>.</p><a class="btn full" target="_blank" rel="noopener" href="${MAPS}">📍 Cómo llegar</a><p class="note">Mientras tanto, cargá tu documentación: cédula, constancia del BPS e informe médico.</p><button class="btn ghost full" id="wSent">Cargar documentos</button></div>`;
-  else h+=`<div class="okbox"><div class="check">✓</div><h3>¡Perfecto! La seña ya quedó abonada correctamente.</h3><p>Ahora debés mandar el comprobante al WhatsApp: <b>${WSP.mostrar}</b></p><a class="btn wa full" target="_blank" rel="noopener" href="${wa("Hola, soy "+me.n+". Te envío el comprobante de la seña de "+money(se)+" para mi cita con "+p.n+" el "+lbl(W.f)+" a las "+W.h+" h.")}">${WAI} Enviar comprobante por WhatsApp</a><p class="note">Después de enviarlo, cargá tu documentación: cédula, constancia del BPS e informe médico.</p><button class="btn full" id="wSent">Ya envié el comprobante · Cargar documentos</button></div>`;
+  if(W.pres)h+=`<div class="okbox"><div class="check">✓</div><h3>¡Cita reservada!</h3><p>Abonás la seña de <b>${money(se)}</b> en la clínica, con POS o en efectivo: <b>${DIR.split(",")[0]}</b>.</p><a class="btn full" target="_blank" rel="noopener" href="${MAPS}">📍 Cómo llegar</a><button class="btn ghost full" id="wSent">Ver mi agenda</button></div>`;
+  else h+=`<div class="okbox"><div class="check">✓</div><h3>¡Perfecto! La seña ya quedó abonada correctamente.</h3><p>Ahora debés mandar el comprobante al WhatsApp: <b>${WSP.mostrar}</b></p><a class="btn wa full" target="_blank" rel="noopener" href="${wa("Hola, soy "+me.n+". Te envío el comprobante de la seña de "+money(se)+" para mi cita con "+p.n+" el "+lbl(W.f)+" a las "+W.h+" h.")}">${WAI} Enviar comprobante por WhatsApp</a><button class="btn full" id="wSent">Ya envié el comprobante · Ver mi agenda</button></div>`;
  }
  $("#wBody").innerHTML=h;
  $$("[data-e]").forEach(b=>b.onclick=()=>{W.esp=b.dataset.e;wz()});
@@ -349,7 +349,7 @@ function wz(){
  const sn=$("#wSent");if(sn)sn.onclick=async()=>{
   const a=APPTS.find(x=>x.u===me.uid&&same(x,{p:W.p.id,f:W.f,h:W.h}));
   if(a&&!W.pres){try{await B.putAppt({...a,c:1})}catch(e){toast(errMsg(e))}}
-  close();toast("Ahora cargá tus documentos");await refresh();showTab("docs");go("cuenta")};
+  close();toast("¡Cita reservada! ✔");await refresh();showTab("agenda");go("cuenta")};
 }
 $$("[data-agendar]").forEach(b=>b.onclick=()=>reserva());
 $$("[data-wa]").forEach(e=>e.innerHTML=WAI);
@@ -400,7 +400,7 @@ function paintCuenta(){
  $("#tabBps").hidden=me.mod!=="bps";
  if(me.mod==="bps")$("#p-bps").innerHTML=`<div class="alert ${me.bpsEst==="aprobado"?"ok":me.bpsEst==="no_aprobado"?"bad":""}"><b>${BPSE[me.bpsEst]||BPSE.sin_enviar}</b><br><span class="note">${me.bpsEst==="aprobado"?"El BPS aprobó un importe de "+money(me.bps)+" por sesión. La seña es el 50 % del saldo que no cubre el BPS.":me.bpsEst==="enviado"?"La clínica ya envió tu documentación al BPS. Te avisamos cuando respondan.":me.bpsEst==="no_aprobado"?"El BPS no aprobó la cobertura. La clínica se va a comunicar con vos.":"La clínica enviará tu documentación al BPS cuando esté aprobada."}</span></div>`+(me.bpsEst==="aprobado"?tablaCob(me.bps)+'<p class="note">Costo total de la sesión, cobertura del BPS, saldo restante que paga la familia y seña para reservar.</p>':"");
  const pp=$("#p-perfil");if(!pp.contains(document.activeElement)){
-  pp.innerHTML=[["Nombre",me.n],["Cédula","CI "+fmtCi(me.ci)],["Tipo","Paciente"]].map(r=>`<div class="row"><span class="note">${r[0]}</span><b>${esc(r[1])}</b></div>`).join("")+`<form id="fTel" novalidate class="row" style="align-items:flex-end"><div style="flex:1;min-width:200px"><label for="tT">Teléfono de contacto</label><input id="tT" inputmode="tel" value="${esc(me.tel)}"></div><button class="btn sm" type="submit">Guardar</button></form><p class="note err" id="tE"></p><p class="note">Para corregir nombre o cédula, consultá en la clínica.</p>`;
+  pp.innerHTML=[["Nombre",me.n],["Cédula del menor","CI "+fmtCi(me.ci)],["Tipo","Paciente"]].map(r=>`<div class="row"><span class="note">${r[0]}</span><b>${esc(r[1])}</b></div>`).join("")+`<form id="fTel" novalidate class="row" style="align-items:flex-end"><div style="flex:1;min-width:200px"><label for="tT">Teléfono de contacto</label><input id="tT" inputmode="tel" value="${esc(me.tel)}"></div><button class="btn sm" type="submit">Guardar</button></form><p class="note err" id="tE"></p><p class="note">Para corregir nombre o cédula, consultá en la clínica.</p>`;
   $("#fTel").onsubmit=async e=>{e.preventDefault();const t=$("#tT").value.trim();if(!telOk(t)){$("#tE").textContent="Ingresá un teléfono válido.";return}
    try{await B.saveProfile(me.uid,{tel:t});me={...me,tel:t};toast("Teléfono guardado ✔");await refresh()}catch(x){$("#tE").textContent=errMsg(x)}};
  }
@@ -426,7 +426,7 @@ $("#fPac").onsubmit=async e=>{
 };
 
 // ===== Funcionario: panel =====
-const contacto=u=>`<div class="sum"><div><span>Paciente</span><b>${esc(u.n||"—")}</b></div><div><span>Tutor</span><b>${esc(u.tut||"—")}</b></div><div><span>Cédula</span><b>${u.ci?"CI "+fmtCi(u.ci):"—"}</b></div><div><span>Teléfono del tutor</span><b>${esc(u.tel||"—")}</b></div><div><span>Modalidad</span><b>${MODS[u.mod]||"—"}</b></div></div>${u.tel?`<div class="row2"><a class="btn sm" href="tel:${esc(String(u.tel).replace(/[^\d+]/g,""))}">📞 Llamar</a><a class="btn wa sm" target="_blank" rel="noopener" href="${waTel(u.tel)}">WhatsApp</a></div>`:""}`;
+const contacto=u=>`<div class="sum"><div><span>Paciente</span><b>${esc(u.n||"—")}</b></div><div><span>Tutor</span><b>${esc(u.tut||"—")}</b></div><div><span>Cédula del menor</span><b>${u.ci?"CI "+fmtCi(u.ci):"—"}</b></div><div><span>Teléfono del tutor</span><b>${esc(u.tel||"—")}</b></div><div><span>Modalidad</span><b>${MODS[u.mod]||"—"}</b></div></div>${u.tel?`<div class="row2"><a class="btn sm" href="tel:${esc(String(u.tel).replace(/[^\d+]/g,""))}">📞 Llamar</a><a class="btn wa sm" target="_blank" rel="noopener" href="${waTel(u.tel)}">WhatsApp</a></div>`:""}`;
 async function verArchivo(id){
  info("<h3>Cargando documento…</h3>");
  try{const data=await B.getFile(id);if(!data){info("<h3>Archivo no disponible</h3>");return}
