@@ -154,8 +154,8 @@ nav.open .burger span:nth-child(1){transform:translateY(7px) rotate(45deg)}nav.o
 /* ===== Páginas, logo y paneles ===== */
 .page{min-height:calc(100vh - 220px)}
 .page[hidden]{display:none!important}
-.logo img{display:block;height:27px;width:auto}
-.hero-logo{display:block;margin:0 auto 18px;width:min(300px,62vw);height:auto;filter:drop-shadow(0 10px 40px rgba(139,92,246,.45));position:relative}
+.logo img{display:block;height:36px;width:auto}
+.hero-logo{display:block;margin:0 auto 18px;width:min(250px,56vw);height:auto;filter:drop-shadow(0 10px 40px rgba(139,92,246,.45));position:relative}
 .narrow{max-width:480px}
 .linkcard{display:block;text-decoration:none}
 .actions{margin-top:26px;display:flex;gap:12px;flex-wrap:wrap}
