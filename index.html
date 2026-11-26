@@ -6,35 +6,51 @@
 <title>Clínica Jacarandá · Espacio Interdisciplinario</title>
 <meta name="description" content="Atención y rehabilitación del desarrollo infantil y adolescente en Montevideo. Reservá turnos, cargá tus documentos y gestioná tu cuenta online.">
 <meta name="theme-color" content="#050507">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%9C%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/png" href="icon.png">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <nav id="nav"><div class="wrap">
-  <a class="logo" href="#inicio"><span class="lg">✿</span>JACARANDÁ</a>
+  <a class="logo" href="#inicio"><img src="logo-sm.png" alt="" width="40" height="27">JACARANDÁ</a>
   <ul id="menu">
-    <li><a href="#nosotros">Nosotros</a></li>
-    <li><a href="#instructivo">Cómo reservar</a></li>
-    <li><a href="#profesionales">Profesionales</a></li>
-    <li><a href="#cuenta" data-docs>Mi cuenta</a></li>
-    <li><a href="#contacto">Contacto</a></li>
-    <li><a href="#cuenta" id="navAuth">Ingresar</a></li>
+    <li><a href="#inicio" data-r="inicio">Inicio</a></li>
+    <li><a href="#nosotros" data-r="nosotros">Nosotros</a></li>
+    <li><a href="#reservar" data-r="reservar">Cómo reservar</a></li>
+    <li><a href="#profesionales" data-r="profesionales">Profesionales</a></li>
+    <li><a href="#contacto" data-r="contacto">Contacto</a></li>
+    <li><a href="#ingresar" id="navAcc">Mi cuenta</a></li>
+    <li id="liOut" hidden><a href="#inicio" id="navOut">Cerrar sesión</a></li>
   </ul>
   <button class="btn sm pulse" id="navIng">Ingresar</button>
   <button class="btn sm ncta" data-agendar>Agendar cita</button>
   <button class="burger" id="burger" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu"><span></span><span></span><span></span></button>
 </div></nav>
+<div id="demoBar" hidden><span><b>Modo demo:</b> podés probar todo, pero nada se guarda en la clínica.</span><button class="btn ghost sm" id="demoOut">Salir del demo</button></div>
+<div id="localBar" hidden></div>
 
-<header class="hero" id="inicio"><div class="wrap">
+<!-- INICIO -->
+<main class="page" id="pg-inicio">
+<header class="hero"><div class="wrap">
+  <img class="hero-logo" src="logo.png" alt="Árbol jacarandá violeta, logo de la Clínica Jacarandá" width="900" height="617">
   <span class="tag">Espacio Interdisciplinario · Montevideo</span>
   <h1>Acompañamos el desarrollo de cada niño y adolescente</h1>
-  <p>Un equipo de profesionales que trabaja en conjunto. Creá tu cuenta o entrá con Google, mirá los horarios, agendá tu cita y abonás la seña desde el celular.</p>
-  <button class="btn pulse" id="heroIng" data-login>Ingresar o crear cuenta</button>
+  <p>Un equipo de profesionales que trabaja en conjunto. Ingresá con la cuenta que te da la clínica, mirá los horarios, agendá tu cita y abonás la seña desde el celular.</p>
+  <button class="btn pulse" data-go="ingresar" id="heroIng">Ingresar a mi cuenta</button>
   <button class="btn" data-agendar>Agendar cita con un profesional</button>
-  <a class="btn ghost" href="#instructivo">Cómo reservar</a>
+  <button class="btn ghost" data-demo>Seguir sin iniciar sesión (demo)</button>
 </div></header>
+<section><div class="wrap">
+  <div class="grid">
+    <a class="card rv linkcard" href="#nosotros"><h3>Quiénes somos</h3><p>Nuestra historia y el árbol violeta que nos dio el nombre.</p></a>
+    <a class="card rv linkcard" href="#reservar"><h3>Cómo reservar</h3><p>Los 5 pasos para agendar tu hora.</p></a>
+    <a class="card rv linkcard" href="#profesionales"><h3>Profesionales</h3><p>Especialidades, días y horarios disponibles.</p></a>
+    <a class="card rv linkcard" href="#contacto"><h3>Contacto</h3><p>Dirección, mapa y WhatsApp.</p></a>
+  </div>
+</div></section>
+</main>
 
-<section id="nosotros"><div class="wrap">
+<!-- NOSOTROS -->
+<main class="page" id="pg-nosotros" hidden><section><div class="wrap">
   <h2 class="rv">Quiénes somos</h2>
   <p class="lead rv">Jacarandá es un centro de atención y rehabilitación del desarrollo infantil y adolescente, con un abordaje interdisciplinario, registrado en el Ministerio de Salud Pública como centro de rehabilitación psicomotriz y psicopedagógico.</p>
   <div class="grid">
@@ -47,51 +63,33 @@
     <div class="card center rv"><div class="num" data-n="3">0</div><p>áreas de especialidad</p></div>
     <div class="card center rv"><div class="num" data-n="100" data-s="%">0</div><p>abordaje interdisciplinario</p></div>
   </div>
-</div></section>
+</div></section></main>
 
-
-
-<section id="instructivo" class="alt"><div class="wrap">
+<!-- COMO RESERVAR -->
+<main class="page" id="pg-reservar" hidden><section><div class="wrap">
   <h2 class="rv">Cómo reservar tu hora</h2>
-  <div class="alert rv"><b>Reservá en 5 pasos:</b> creá tu cuenta (o entrá con Google), agendá tu cita, abonás la seña, mandás el comprobante por WhatsApp y cargás tus documentos.<br><span class="note">Se puede hacer todo desde el celular.</span></div>
+  <div class="alert rv"><b>Reservá en 5 pasos:</b> aceptá el tratamiento en la clínica, ingresá con tu cuenta, agendá tu cita, abonás la seña y cargás tus documentos.<br><span class="note">Una vez que tenés tu cuenta, se hace todo desde el celular.</span></div>
   <div class="grid">
-    <div class="card rv"><div class="num">01</div><h3>Creá tu cuenta</h3><p>Con tu correo o con Google. Se hace una sola vez.</p></div>
-    <div class="card rv"><div class="num">02</div><h3>Agendá tu cita</h3><p>Elegí profesional, día y horario disponibles.</p></div>
-    <div class="card rv"><div class="num">03</div><h3>Abonás la seña</h3><p>El 50 % de la consulta confirma tu lugar: con tarjeta, Mercado Pago o transferencia. También podés abonar en la clínica con POS o efectivo.</p></div>
-    <div class="card rv"><div class="num">04</div><h3>Enviá el comprobante</h3><p>Mandalo por WhatsApp al 091234567.</p></div>
-    <div class="card rv"><div class="num">05</div><h3>Cargá tus documentos</h3><p>Cédula, constancia del BPS e informe médico.</p></div>
+    <div class="card rv"><div class="num">01</div><h3>Aceptá el tratamiento</h3><p>Vení a la clínica. Cuando aceptás el tratamiento, te creamos tu cuenta con una contraseña temporal.</p></div>
+    <div class="card rv"><div class="num">02</div><h3>Ingresá y cambiá tu clave</h3><p>Entrá con tu cédula y la contraseña temporal. La primera vez te pedimos que elijas una propia.</p></div>
+    <div class="card rv"><div class="num">03</div><h3>Agendá tu cita</h3><p>Elegí profesional, día y horario disponibles en su agenda.</p></div>
+    <div class="card rv"><div class="num">04</div><h3>Abonás la seña</h3><p>El 50 % de la consulta confirma tu lugar: con tarjeta, Mercado Pago o transferencia (y mandás el comprobante por WhatsApp al 091234567). También podés abonar en la clínica con POS o efectivo.</p></div>
+    <div class="card rv"><div class="num">05</div><h3>Cargá tus documentos</h3><p>Cédula, constancia del BPS e informe médico. La clínica los revisa y ves el estado en tu cuenta.</p></div>
   </div>
-  <div style="margin-top:26px;display:flex;gap:12px;flex-wrap:wrap"><button class="btn pulse" id="btnVideo">▶ Ver video instructivo</button><button class="btn ghost" data-agendar>Agendar cita</button></div>
-</div></section>
+  <div class="actions"><button class="btn pulse" id="btnVideo">▶ Ver video instructivo</button><button class="btn ghost" data-agendar>Agendar cita</button></div>
+</div></section></main>
 
-<section id="cuenta"><div class="wrap">
-  <h2 class="rv">Mi cuenta</h2>
-  <div class="card rv" id="cOut">
-    <h3>Ingresá a tu cuenta</h3>
-    <p>Con tu cuenta podés agendar citas, cargar tus documentos y ver tu agenda desde cualquier dispositivo.</p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" data-login>Ingresar</button><button class="btn ghost" data-reg>Crear cuenta</button></div>
-  </div>
-  <div id="cIn" hidden>
-    <div class="row"><div style="display:flex;gap:14px;align-items:center"><div class="avatar" id="cAv" style="margin:0"></div><div><b id="cNom"></b><br><span class="note" id="cSub"></span></div></div><button class="btn ghost sm" id="cSalir">Cerrar sesión</button></div>
-    <div class="tabs" id="tabs">
-      <button class="on" data-t="docs">Cargar mis documentos</button>
-      <button data-t="agenda">Mi agenda</button>
-      <button data-t="perfil">Mis datos</button>
-    </div>
-    <div class="pane on" id="p-docs"></div>
-    <div class="pane" id="p-agenda"></div>
-    <div class="pane" id="p-perfil"></div>
-  </div>
-</div></section>
-
-<section id="profesionales" class="alt"><div class="wrap">
+<!-- PROFESIONALES -->
+<main class="page" id="pg-profesionales" hidden><section><div class="wrap">
   <h2 class="rv">Profesionales y horarios</h2>
   <p class="lead rv">Elegí una especialidad, mirá los días disponibles y reservá tu hora.</p>
   <div class="filters rv" id="filtros"></div>
   <div class="grid" id="pros"></div>
   <p class="note rv" style="margin-top:20px">Consultas particulares: se solicita una seña del 50 % para confirmar el turno. Si avisás con más de 24 horas hábiles, se reprograma sin costo. Las sesiones del BPS siguen su propio protocolo.</p>
-</div></section>
-<section id="contacto"><div class="wrap">
+</div></section></main>
+
+<!-- CONTACTO -->
+<main class="page" id="pg-contacto" hidden><section><div class="wrap">
   <h2 class="rv">Contacto</h2>
   <div class="info">
     <div class="card rv"><h3>Dirección</h3><p>Vilardebó 1323, Montevideo, Uruguay</p><a href="https://www.google.com/maps/search/?api=1&query=Vilardeb%C3%B3%201323%2C%20Montevideo%2C%20Uruguay" target="_blank" rel="noopener">📍 Cómo llegar</a></div>
@@ -100,23 +98,116 @@
     <div class="card rv"><h3>Atención</h3><p>Lunes a viernes, con horarios según cada profesional. Cerrado en enero.</p></div>
   </div>
   <div class="mapbox rv"><iframe title="Mapa de la Clínica Jacarandá, Vilardebó 1323" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen src="https://www.google.com/maps?q=Vilardeb%C3%B3%201323%2C%20Montevideo%2C%20Uruguay&output=embed"></iframe><div class="mapfoot"><span>📍 <b>Vilardebó 1323</b>, Montevideo</span><a class="btn sm" href="https://www.google.com/maps/search/?api=1&query=Vilardeb%C3%B3%201323%2C%20Montevideo%2C%20Uruguay" target="_blank" rel="noopener">Abrir en Google Maps</a></div></div>
-</div></section>
+</div></section></main>
+
+<!-- INGRESAR -->
+<main class="page" id="pg-ingresar" hidden><section><div class="wrap narrow">
+  <h2>Ingresar</h2>
+  <div class="card">
+    <p class="note" id="lMsg">Ingresá con tu cédula y la contraseña que te dio la clínica. Las cuentas las crea la clínica cuando aceptás el tratamiento.</p>
+    <form id="fLogin" novalidate>
+      <label for="lCi">Cédula de identidad</label><input id="lCi" inputmode="numeric" autocomplete="username" placeholder="1.234.567-2">
+      <label for="lPass">Contraseña</label><input id="lPass" type="password" autocomplete="current-password">
+      <p class="note err" id="lErr"></p>
+      <button class="btn full" type="submit">Ingresar</button>
+    </form>
+    <div class="or"><span>o</span></div>
+    <button class="btn ghost full" data-demo>Seguir sin iniciar sesión (demo)</button>
+    <p class="note" style="margin-top:10px">El demo permite recorrer el sitio como paciente sin cuenta. No se guarda nada.</p>
+  </div>
+</div></section></main>
+
+<!-- CAMBIAR CONTRASEÑA -->
+<main class="page" id="pg-cambiar" hidden><section><div class="wrap narrow">
+  <h2>Elegí tu contraseña</h2>
+  <div class="card">
+    <p class="note">Entraste con una contraseña temporal. Por tu seguridad, elegí una contraseña propia para seguir. Solo se pide esta vez.</p>
+    <form id="fPass" novalidate>
+      <label for="cpN">Nueva contraseña (mínimo 8 caracteres)</label><input id="cpN" type="password" autocomplete="new-password">
+      <label for="cpN2">Repetir nueva contraseña</label><input id="cpN2" type="password" autocomplete="new-password">
+      <p class="note err" id="cpErr"></p>
+      <button class="btn full" type="submit">Guardar y continuar</button>
+    </form>
+  </div>
+</div></section></main>
+
+<!-- MI CUENTA (paciente) -->
+<main class="page" id="pg-cuenta" hidden><section><div class="wrap">
+  <h2>Mi cuenta</h2>
+  <div class="row"><div class="who"><div class="avatar" id="cAv" style="margin:0"></div><div><b id="cNom"></b><br><span class="note" id="cSub"></span></div></div><span id="cEst"></span></div>
+  <div class="tabs" id="tabs">
+    <button class="on" data-t="docs">Mis documentos</button>
+    <button data-t="agenda">Mi agenda</button>
+    <button data-t="perfil">Mis datos</button>
+  </div>
+  <div class="pane on" id="p-docs"></div>
+  <div class="pane" id="p-agenda"></div>
+  <div class="pane" id="p-perfil"></div>
+</div></section></main>
+
+<!-- PANEL FUNCIONARIO -->
+<main class="page" id="pg-panel" hidden><section><div class="wrap">
+  <h2>Panel de funcionarios</h2>
+  <p class="note" id="fSub"></p>
+  <div class="tabs" id="ftabs">
+    <button class="on" data-t="pac">Pacientes</button>
+    <button data-t="doc" id="ftDoc">Documentos</button>
+    <button data-t="ag">Agenda</button>
+  </div>
+  <div class="pane on" id="f-pac">
+    <div class="card"><h3>Crear cuenta de paciente</h3>
+      <p class="note">Se genera una contraseña temporal. El paciente la cambia la primera vez que ingresa.</p>
+      <form id="fPac" class="frm" novalidate>
+        <div><label for="nPn">Nombre completo del paciente</label><input id="nPn" autocomplete="off"></div>
+        <div><label for="nPc">Cédula de identidad</label><input id="nPc" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2"></div>
+        <div><label for="nPt">Teléfono de contacto</label><input id="nPt" inputmode="tel" autocomplete="off" placeholder="091234567"></div>
+        <p class="note err" id="nPe"></p>
+        <button class="btn" type="submit">Crear cuenta</button>
+      </form>
+    </div>
+    <h3 style="margin:26px 0 8px;color:var(--v2)">Pacientes</h3>
+    <input id="pacQ" placeholder="Buscar por nombre o cédula" style="margin-bottom:12px">
+    <div id="pacList"></div>
+  </div>
+  <div class="pane" id="f-doc">
+    <div class="row"><label for="docF" style="margin:0">Mostrar</label><select id="docF" style="max-width:240px"><option value="revision">En revisión</option><option value="rechazado">Rechazados</option><option value="aprobado">Aprobados</option><option value="todos">Todos</option></select></div>
+    <div id="docList"></div>
+  </div>
+  <div class="pane" id="f-ag"><div id="agList"></div></div>
+</div></section></main>
+
+<!-- ADMIN -->
+<main class="page" id="pg-admin" hidden><section><div class="wrap">
+  <h2>Administración</h2>
+  <p class="note" id="aSub"></p>
+  <div class="card"><h3>Crear cuenta de funcionario</h3>
+    <p class="note">Se genera una contraseña temporal. El funcionario la cambia la primera vez que ingresa.</p>
+    <form id="fFun" class="frm" novalidate>
+      <div><label for="nFn">Nombre completo</label><input id="nFn" autocomplete="off"></div>
+      <div><label for="nFc">Cédula de identidad</label><input id="nFc" inputmode="numeric" autocomplete="off" placeholder="1.234.567-2"></div>
+      <div><label for="nFt">Teléfono</label><input id="nFt" inputmode="tel" autocomplete="off" placeholder="091234567"></div>
+      <p class="note err" id="nFe"></p>
+      <button class="btn" type="submit">Crear funcionario</button>
+    </form>
+  </div>
+  <h3 style="margin:26px 0 8px;color:var(--v2)">Funcionarios</h3>
+  <div id="funList"></div>
+</div></section></main>
 
 <footer><div class="wrap">© 2026 Clínica Interdisciplinaria Jacarandá · Vilardebó 1323, Montevideo</div></footer>
-
 
 <div class="overlay" id="mBook"><div class="modal wide">
   <button class="x" data-close aria-label="Cerrar">×</button>
   <div id="wBody"></div>
 </div></div>
 
-<div class="overlay" id="mAuth"><div class="modal">
+<div class="overlay" id="mInfo"><div class="modal wide">
   <button class="x" data-close aria-label="Cerrar">×</button>
-  <div id="aBody"></div>
+  <div id="iBody"></div>
 </div></div>
 
 <div class="overlay" id="mVideo"><div class="modal" style="max-width:520px">
-  <button class="x" data-close>×</button>
+  <button class="x" data-close aria-label="Cerrar">×</button>
   <h3>Video instructivo</h3>
   <div id="vBox"></div>
 </div></div>

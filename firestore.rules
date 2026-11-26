@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signed() { return request.auth != null; }
+    function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
+    function staff() { return signed() && (me().role == 'funcionario' || me().role == 'admin'); }
+
+    // Perfiles: el funcionario crea pacientes, el administrador crea funcionarios.
+    // El administrador "supremo" se crea a mano desde la consola (ver README).
+    match /users/{uid} {
+      allow get: if signed() && (request.auth.uid == uid || staff());
+      allow list: if staff();
+      allow create: if signed() && (
+        (me().role == 'funcionario' && request.resource.data.role == 'paciente') ||
+        (me().role == 'admin' && request.resource.data.role == 'funcionario'));
+      // Cada persona solo puede tocar su teléfono y apagar la marca de "clave temporal".
+      allow update: if signed() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.ci == resource.data.ci
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['mustChange', 'tel']);
+    }
+
+    // Estado de cada documento (en revisión / aprobado / rechazado)
+    match /documentos/{id} {
+      allow get, list: if signed() && (staff() || resource.data.u == request.auth.uid);
+      allow create: if signed() && request.resource.data.u == request.auth.uid
+        && request.resource.data.estado == 'revision';
+      allow update: if signed() && (
+        (resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid
+          && resource.data.estado != 'aprobado' && request.resource.data.estado == 'revision') ||
+        (staff() && request.resource.data.u == resource.data.u));
+    }
+
+    // Contenido del archivo (imagen o PDF en base64)
+    match /archivos/{id} {
+      allow read: if signed() && (staff() || resource.data.u == request.auth.uid);
+      allow create: if signed() && request.resource.data.u == request.auth.uid;
+      allow update: if signed() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
+    }
+
+    // Turnos
+    match /turnos/{id} {
+      allow read: if signed();
+      allow create: if signed() && request.resource.data.u == request.auth.uid;
+      allow update: if signed() && resource.data.u == request.auth.uid && request.resource.data.u == request.auth.uid;
+      allow delete: if signed() && (resource.data.u == request.auth.uid || staff());
+    }
+  }
+}
